@@ -1,0 +1,38 @@
+[package]
+name = "dioxus-fsrouter"
+version = "0.1.0"
+edition = "2024"
+authors = ["Goodwill Mzumala <fisothemes@egmail.com>"]
+license = "MIT"
+description = "A filesystem-style router for Dioxus applications"
+repository = "https://github.com/fisothemes/dioxus-fsrouter"
+keywords = ["dioxus", "router", "web", "ui"]
+categories = ["gui", "web-programming"]
+readme = "README.md"
+
+[dependencies]
+dioxus = "^0.7"
+
+[dev-dependencies]
+dioxus = {version = "0.7", features = ["web"]}
+
+[profile]
+
+[profile.wasm-dev]
+inherits = "dev"
+opt-level = 1
+
+[profile.server-dev]
+inherits = "dev"
+
+[profile.android-dev]
+inherits = "dev"
+
+[[example]]
+name = "basic"
+path = "examples/basic.rs"
+
+[[example]]
+name = "params"
+path = "examples/params.rs"
+
