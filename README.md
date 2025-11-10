@@ -347,3 +347,13 @@ fn NotFound() -> Element { ... }
 // /user/123 → matches UserProfile (parameterized)
 // /user/123/invalid → matches NotFound (fallback)
 ```
+
+## Project Progress
+
+This project is being implemented in multiple phases to ensure quality and maintainability.
+
+### Tracking Progress
+
+You can view the current implementation status, completed features, and upcoming work in
+the [Progress.md](./Progress.md) file located in the root directory of this repository. This document is regularly
+updated to reflect the project's development state.
