@@ -4,387 +4,323 @@
 [![Documentation](https://docs.rs/dioxus-fsrouter/badge.svg)](https://docs.rs/dioxus-fsrouter)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-A simple, filesystem-style router for [Dioxus](https://dioxuslabs.com/) applications. Inspired by file-based routing systems, `dioxus-fsrouter` provides an intuitive and declarative way to handle client-side navigation.
+A simple, filesystem-style router for [Dioxus](https://dioxuslabs.com/) applications that provides component-based routing with compile-time safety, automatic route registration, and zero boilerplate.
+
+## Core Principles
+
+1. **Component-First**: Routes are attached directly to components via attributes
+2. **Type-Safe**: All navigation is type-checked at compile time
+3. **Zero Boilerplate**: No enums, no manual registration, no string-based routing
+4. **Compile-Time Validation**: Route conflicts and invalid URLs caught at compile time
+5. **Auto-Discovery**: Routes automatically register themselves via global inventory
 
 ## Features
 
-- **Simple & Declarative** - Define routes with a clean macro syntax
-- **Dynamic Parameters** - Extract route parameters like `/blog/:id`
-- **Client-Side Navigation** - `Link` component for seamless navigation
-- **Hooks API** - `use_navigator()` and `use_params()` for programmatic control
-- **Type-Safe** - Leverage Rust's type system for reliable routing
-- **Lightweight** - Minimal dependencies, just Dioxus core
-
-## Installation
-
-Add to your `Cargo.toml`:
-
-```toml
-[dependencies]
-dioxus = "0.7"
-dioxus-fsrouter = "0.1"
-```
-
-## Quick Start
+### 1. Route Definition
 
 ```rust
-use dioxus::prelude::*;
-use dioxus_fsrouter::*;
-
-fn main() {
-    dioxus::launch(App);
-}
-
-fn App() -> Element {
-    rsx! {
-        Router {
-            resolver: route_resolver,
-            Navbar {}
-        }
-    }
-}
-
-fn route_resolver(path: String) -> Element {
-    match_route!(&path => {
-        "/" => rsx! { Home {} },
-        "/about" => rsx! { About {} },
-        "/contact" => rsx! { Contact {} },
-    })
-}
-
-#[component]
-fn Navbar() -> Element {
-    rsx! {
-        nav {
-            Link { to: "/".to_string(), "Home" }
-            Link { to: "/about".to_string(), "About" }
-            Link { to: "/contact".to_string(), "Contact" }
-        }
-    }
-}
-
+#[route("/")]
 #[component]
 fn Home() -> Element {
-    rsx! {
-        div {
-            h1 { "Welcome Home!" }
-            p { "This is the home page" }
-        }
-    }
+    rsx! { div { "Home" } }
 }
-```
 
-## Core Concepts
-
-### Router Component
-
-The `Router` component is the foundation of your routing setup. It takes a `resolver` function that maps paths to components:
-
-```rust
-rsx! {
-    Router {
-        resolver: route_resolver,
-        // Your navigation/layout components
-        Navbar {}
-    }
-}
-```
-
-### Route Matching
-
-Use the `match_route!` macro to define your routes:
-
-```rust
-fn route_resolver(path: String) -> Element {
-    match_route!(&path => {
-        "/" => rsx! { Home {} },
-        "/blog" => rsx! { BlogList {} },
-        "/blog/:id" => rsx! { BlogPost {} },
-        "/user/:username" => rsx! { UserProfile {} },
-    })
-}
-```
-
-Routes are matched in order. The first matching route wins.
-
-### Dynamic Parameters
-
-Extract dynamic segments from URLs using the `:param` syntax:
-
-```rust
-// Route: "/blog/:id"
-// URL: "/blog/hello-world"
-
+#[route("/user/:id")]
 #[component]
-fn BlogPost() -> Element {
-    let params = use_params();
-    let post_id = params.get("id").cloned().unwrap_or_default();
-    
-    rsx! {
-        div {
-            h1 { "Blog Post" }
-            p { "Post ID: {post_id}" }
-        }
-    }
+fn UserProfile(id: String) -> Element {
+    rsx! { div { "User: {id}" } }
 }
-```
 
-### Navigation
-
-#### Using the Link Component
-
-The `Link` component provides declarative navigation with automatic route handling:
-
-```rust
+#[route("/post/:slug")]
+#[alias("/article/:slug")]
+#[alias("/blog/:slug")]
 #[component]
-fn Navbar() -> Element {
-    rsx! {
-        nav {
-            Link { to: "/".to_string(), "Home" }
-            Link { to: "/about".to_string(), "About" }
-            Link { 
-                to: "/blog/my-post".to_string(), 
-                "Read My Post" 
-            }
+fn Post(slug: String) -> Element {
+    let ctx = use_route_context();
+    
+    // Redirect aliases to canonical URL
+    if ctx.is_alias {
+        let nav = use_navigation();
+        use_effect(move || {
+            nav.replace_url(&format!("/post/{}", slug));
+        });
+    }
+    
+    rsx! { 
+        div { 
+            "Post: {slug}"
+            small { "via {ctx.pattern}" }
         }
     }
 }
 ```
 
-#### Programmatic Navigation
+**Capabilities:**
+- Primary route via `#[route("/path")]`
+- Multiple aliases via `#[alias("/path")]`
+- Route parameters (`:param`) automatically parsed and passed as component props
+- Component props must match route parameters (compile-time checked)
+- Access route metadata via `use_route_context()`
 
-Use the `use_navigator()` hook for programmatic navigation:
-
-```rust
-#[component]
-fn LoginForm() -> Element {
-    let navigate = use_navigator();
-    
-    let handle_submit = move |_| {
-        // Perform login logic...
-        navigate("/dashboard");
-    };
-    
-    rsx! {
-        form {
-            // Form fields...
-            button {
-                onclick: handle_submit,
-                "Login"
-            }
-        }
-    }
-}
-```
-
-## Examples
-
-### Basic Routing
-
-```rust
-fn route_resolver(path: String) -> Element {
-    match_route!(&path => {
-        "/" => rsx! { Home {} },
-        "/about" => rsx! { About {} },
-        "/contact" => rsx! { Contact {} },
-    })
-}
-```
-
-### Route with Parameters
-
-```rust
-fn route_resolver(path: String) -> Element {
-    match_route!(&path => {
-        "/" => rsx! { Home {} },
-        "/blog" => rsx! { BlogList {} },
-        "/blog/:id" => rsx! { BlogPost {} },
-    })
-}
-
-#[component]
-fn BlogPost() -> Element {
-    let params = use_params();
-    let post_id = params.get("id");
-    
-    rsx! {
-        article {
-            h1 { "Post: {post_id:?}" }
-            // ... post content
-        }
-    }
-}
-```
-
-### Multiple Parameters
-
-```rust
-fn route_resolver(path: String) -> Element {
-    match_route!(&path => {
-        "/" => rsx! { Home {} },
-        "/user/:username/post/:post_id" => rsx! { UserPost {} },
-    })
-}
-
-#[component]
-fn UserPost() -> Element {
-    let params = use_params();
-    let username = params.get("username");
-    let post_id = params.get("post_id");
-    
-    rsx! {
-        div {
-            h1 { "@{username:?}'s Post" }
-            p { "Post ID: {post_id:?}" }
-        }
-    }
-}
-```
-
-### Nested Layouts
+### 2. Router Setup
 
 ```rust
 fn App() -> Element {
+    router! {
+        Navbar {}
+        main {
+            Outlet {}
+        }
+        Footer {}
+    }
+}
+```
+
+**Capabilities:**
+- `router!` macro sets up routing context
+- `Outlet` component renders matched route
+- Non-route components (Navbar, Footer) render normally
+- Routes auto-discovered from global inventory
+
+### 3. Navigation
+
+```rust
+fn Navbar() -> Element {
     rsx! {
-        Router {
-            resolver: route_resolver,
-            // Shared layout components
-            Header {}
-            main {
-                style: "padding: 2rem;",
-                // Routes render here
-            }
-            Footer {}
+        nav {
+            // Type-safe links to components
+            LinkTo::<Home> { "Home" }
+            LinkTo::<UserProfile> { id: "alice", "Alice's Profile" }
+            LinkTo::<Post> { slug: "hello-world", "Read Post" }
+        }
+    }
+}
+
+fn SomeComponent() -> Element {
+    let nav = use_navigation();
+    
+    rsx! {
+        button {
+            onclick: move |_| nav.push::<UserProfile>(UserProfileProps { 
+                id: "bob".to_string() 
+            }),
+            "Go to Bob's Profile"
+        }
+        button {
+            onclick: move |_| nav.go_back(),
+            "Back"
         }
     }
 }
 ```
 
-### 404 Handling
+**Capabilities:**
+- `LinkTo::<Component>` for declarative navigation
+- `use_navigation()` hook for programmatic navigation
+- Type-safe: Can't navigate to non-existent routes
+- Props validated at compile time
 
-The `match_route!` macro automatically provides a 404 page for unmatched routes:
+### 4. Route Parameters
 
 ```rust
-// If no routes match, renders:
-// <div>
-//   <h1>404 - Not Found</h1>
-//   <p>Route: /unknown/path</p>
-// </div>
+#[route("/user/:id/posts/:post_id")]
+#[component]
+fn UserPost(id: String, post_id: u32) -> Element {
+    let ctx = use_route_context();
+    
+    rsx! { 
+        div { 
+            "User {id}, Post {post_id}"
+            // Access params from context too
+            p { "ID from context: {ctx.params.get(\"id\").unwrap()}" }
+        }
+    }
+}
+
+// Usage:
+LinkTo::<UserPost> { id: "alice", post_id: 42, "View Post" }
+
+// URL: /user/alice/posts/42
+// Automatically parsed: id = "alice", post_id = 42
 ```
 
-You can customize the 404 page by catching unmatched routes:
+**Capabilities:**
+- Parameters defined with `:name` syntax
+- Automatically parsed from URL to component props
+- Type conversion (String, u32, i32, etc.)
+- Parse failures result in 404 or fallback route
+- Access raw params via `use_route_context().params`
+
+### 5. Route Context
 
 ```rust
-fn route_resolver(path: String) -> Element {
-    match_route!(&path => {
-        "/" => rsx! { Home {} },
-        "/about" => rsx! { About {} },
-        // Add a catch-all at the end
-        "/:rest" => rsx! { Custom404 {} },
-    })
+#[route("/dashboard")]
+#[component]
+fn Dashboard() -> Element {
+    let ctx = use_route_context();
+    
+    // Log analytics
+    use_effect(move || {
+        log_page_view(&ctx.url, ctx.component_name);
+    });
+    
+    rsx! { 
+        div { 
+            "Dashboard"
+            small { "Current URL: {ctx.url}" }
+            small { "Matched pattern: {ctx.pattern}" }
+        }
+    }
 }
 ```
 
-## API Reference
+**RouteContext Fields:**
+- `url: String` - The actual URL path (e.g., "/article/hello-world")
+- `pattern: &'static str` - The pattern that matched (e.g., "/article/:slug")
+- `is_alias: bool` - Whether matched via an alias
+- `component_name: &'static str` - Name of the matched component
+- `params: HashMap<String, String>` - Extracted route parameters
 
-### Components
+**Use Cases:**
+- Canonical URL redirects
+- Analytics and logging
+- Breadcrumb generation
+- Conditional rendering based on route type
 
-#### `Router`
-
-The main router component.
-
-**Props:**
-- `resolver: fn(String) -> Element` - Function that maps paths to components
-- `children: Element` - Child components (typically layout/navigation)
-
-#### `Link`
-
-Component for client-side navigation.
-
-**Props:**
-- `to: String` - Target path
-- `children: Element` - Link content
-
-### Hooks
-
-#### `use_navigator() -> impl Fn(&str)`
-
-Returns a function for programmatic navigation.
+### 6. Fallback Routes (404 Handling)
 
 ```rust
-let navigate = use_navigator();
-navigate("/home");
+#[fallback]
+#[component]
+fn NotFound() -> Element {
+    let ctx = use_route_context();
+    let nav = use_navigation();
+    
+    // Log 404s
+    use_effect(move || {
+        log_404(&ctx.url);
+    });
+    
+    rsx! { 
+        div { class: "not-found",
+            h1 { "404 - Page Not Found" }
+            p { "The page '{ctx.url}' does not exist" }
+            
+            // Smart suggestions based on URL
+            if ctx.url.starts_with("/user/") {
+                p { "Looking for a user profile?" }
+                LinkTo::<UserList> { "Browse Users" }
+            }
+            
+            button {
+                onclick: move |_| nav.go_back(),
+                "Go Back"
+            }
+            LinkTo::<Home> { "Go Home" }
+        }
+    }
+}
 ```
 
-#### `use_params() -> HashMap<String, String>`
+**Capabilities:**
+- `#[fallback]` marks a component as the 404 handler
+- Only one fallback allowed per application (compile-time enforced)
+- Has lowest matching priority
+- Access attempted URL via `use_route_context()`
+- Cannot be combined with `#[route]` or `#[alias]`
 
-Returns route parameters as a HashMap.
+### 7. Compile-Time Validation
+
+#### URL Validation
+```rust
+#[route("/valid/path")]        // ✅ Valid
+#[route("/user/:id")]          // ✅ Valid
+#[route("/")]                  // ✅ Valid
+
+#[route("no-slash")]           // ❌ Error: Must start with '/'
+#[route("/double//slash")]     // ❌ Error: No double slashes
+#[route("/user/:")]            // ❌ Error: Empty parameter name
+#[route("/user/:id/:id")]      // ❌ Error: Duplicate parameter ':id'
+#[route("/trailing/")]         // ❌ Warning: Trailing slash (optional)
+```
+
+#### Duplicate Route Detection
+```rust
+#[route("/about")]
+fn About() -> Element { ... }
+
+#[route("/about")]             // ❌ Error: Route "/about" already registered by `About`
+fn AboutUs() -> Element { ... }
+
+#[route("/contact")]
+#[alias("/about")]             // ❌ Error: Alias "/about" conflicts with route `About`
+fn Contact() -> Element { ... }
+
+#[route("/home")]
+#[alias("/")]
+fn HomePage() -> Element { ... }
+
+#[route("/")]                  // ❌ Error: Route "/" conflicts with alias on `HomePage`
+fn Index() -> Element { ... }
+```
+
+#### Fallback Validation
+```rust
+#[fallback]
+fn NotFound() -> Element { ... }
+
+#[fallback]                    // ❌ Error: Fallback already defined by `NotFound`
+fn Error404() -> Element { ... }
+
+#[fallback]
+#[route("/404")]               // ❌ Error: Fallback cannot have explicit route path
+fn NotFound() -> Element { ... }
+
+#[fallback]
+#[alias("/404")]               // ❌ Error: Fallback cannot have aliases
+fn NotFound() -> Element { ... }
+```
+
+#### Type Safety
+```rust
+#[route("/user/:id")]
+fn UserProfile(id: String) -> Element { ... }
+
+LinkTo::<UserProfile> { id: "alice" }           // ✅ Valid
+LinkTo::<UserProfile> { id: 123 }               // ❌ Error: Expected String, got i32
+LinkTo::<UserProfile> { user_id: "alice" }      // ❌ Error: Unknown prop 'user_id'
+LinkTo::<UserProfile> { }                       // ❌ Error: Missing required prop 'id'
+
+#[route("/post/:id")]
+fn Post(id: u32) -> Element { ... }
+
+// URL: /post/abc
+// Result: 404 (parse failure) or fallback route
+```
+
+### 8. Route Priority
+
+Routes are matched in order of specificity:
+
+1. **Exact matches**: `/about` (priority: 1000)
+2. **Parameterized routes**: `/user/:id` (priority: 500)
+3. **Fallback**: `#[fallback]` (priority: -1000)
+
+Within each tier, longer/more specific paths have higher priority:
+- `/user/:id/posts/:post_id` (priority: 502) > `/user/:id` (priority: 501)
+- `/user/new` (priority: 1000) > `/user/:id` (priority: 500)
 
 ```rust
-let params = use_params();
-let id = params.get("id");
+#[route("/user/new")]          // Priority: 1000 (exact)
+fn NewUser() -> Element { ... }
+
+#[route("/user/:id")]          // Priority: 500 (parameterized)
+fn UserProfile(id: String) -> Element { ... }
+
+#[fallback]                    // Priority: -1000 (fallback)
+fn NotFound() -> Element { ... }
+
+// /user/new → matches NewUser (exact match)
+// /user/123 → matches UserProfile (parameterized)
+// /user/123/invalid → matches NotFound (fallback)
 ```
-
-### Macros
-
-#### `match_route!`
-
-Matches the current path against route patterns.
-
-```rust
-match_route!(&path => {
-    "/" => rsx! { Home {} },
-    "/user/:id" => rsx! { User {} },
-})
-```
-
-## Running Examples
-
-Clone the repository and run the examples:
-
-```bash
-# Basic routing example
-dx serve --example basic 
-
-# Route parameters example
-dx serve --example params
-```
-
-## Testing
-
-Run the test suite:
-
-```bash
-cargo test
-```
-
-Run tests with output:
-
-```bash
-cargo test -- --nocapture
-```
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-## License
-
-This project is licensed under:
-- MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
-
-## Acknowledgments
-
-- Built for [Dioxus](https://dioxuslabs.com/) - A cross-platform GUI library for Rust
-- Inspired by filesystem-based routing in modern web frameworks
-
-## Contact
-
-- Issues: [GitHub Issues](https://github.com/fisothemes/dioxus-fsrouter/issues)
-- Discussions: [GitHub Discussions](https://github.com/fisothemes/dioxus-fsrouter/discussions)

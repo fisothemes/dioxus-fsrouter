@@ -1,0 +1,30 @@
+[package]
+name = "dioxus-fsrouter"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+description = "Component-based router for Dioxus with compile-time safety"
+keywords = ["dioxus", "router", "web", "ui", "framework"]
+categories = ["web-programming", "gui"]
+readme = "README.md"
+
+[dependencies]
+dioxus = { workspace = true }
+dioxus-fsrouter-macro = { workspace = true }
+
+# Route registration and matching
+linkme = { workspace = true }
+regex = { workspace = true }
+once_cell = { workspace = true }
+
+[dev-dependencies]
+dioxus = { workspace = true, features = ["desktop"] }
+
+[features]
+default = []
+# Future features
+ssr = []
+hash-routing = []
