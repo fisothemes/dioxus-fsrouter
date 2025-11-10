@@ -53,11 +53,33 @@ fn Post(slug: String) -> Element {
         }
     }
 }
+
+#[route_group("/admin")]
+mod admin {
+    #[route("/users")] // Becomes "/admin/users"
+    #[component]
+    fn Users() -> Element {
+        rsx! { div { "Admin Users" } }
+    }
+    
+    #[route("/settings")] // Becomes "/admin/settings"
+    #[component]
+    fn Settings() -> Elements {
+        rsx! { div { "Admin Settings" } }
+    }
+
+    #[route("/logs/:date")] // Becomes "/admin/logs/:date"
+    #[component]
+    fn Logs(date: String) {
+        rsx!{ div { "Logs for {date}" } }
+    }
+}
 ```
 
 **Capabilities:**
 - Primary route via `#[route("/path")]`
 - Multiple aliases via `#[alias("/path")]`
+- Grouped routes via `#[route_group("/prefix")]` on modules
 - Route parameters (`:param`) automatically parsed and passed as component props
 - Component props must match route parameters (compile-time checked)
 - Access route metadata via `use_route_context()`
@@ -92,6 +114,7 @@ fn Navbar() -> Element {
             LinkTo::<Home> { "Home" }
             LinkTo::<UserProfile> { id: "alice", "Alice's Profile" }
             LinkTo::<Post> { slug: "hello-world", "Read Post" }
+            LinkTo::<admin::Users> { "Admin users" }
         }
     }
 }
