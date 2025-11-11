@@ -18,5 +18,4 @@ proc-macro2 = { workspace = true }
 darling = { workspace = true }
 
 [dev-dependencies]
-# For testing macro expansion
 trybuild = "1.0"

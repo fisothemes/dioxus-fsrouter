@@ -11,6 +11,7 @@ edition = "2024"
 authors = ["Goodwill Mzumala <fisothemes@egmail.com>"]
 license = "MIT"
 repository = "https://github.com/fisothemes/dioxus-fsrouter"
+rust-version = "1.89.0"
 
 [workspace.dependencies]
 dioxus = "0.7"
