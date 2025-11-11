@@ -1,0 +1,17 @@
+[package]
+name = "basic-app"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+dioxus = { workspace = true, features = ["web"] }
+dioxus-fsrouter = { workspace = true }
+linkme = "0.3"
+
+[[bin]]
+name = "basic"
+path = "src/main.rs"
