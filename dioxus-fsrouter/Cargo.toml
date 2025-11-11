@@ -24,3 +24,7 @@ wasm-bindgen = "0.2"
 
 [dev-dependencies]
 dioxus = { workspace = true }
+
+[[example]]
+name = "basic"
+path = "../examples/basic.rs"

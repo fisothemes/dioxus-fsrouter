@@ -1,14 +1,27 @@
-pub fn add(left: u64, right: u64) -> u64 {
-    left + right
-}
+//! Component-based router for Dioxus with compile-time safety
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+pub mod context;
+pub mod matching;
+pub mod outlet;
+pub mod route;
+pub mod router;
 
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
+#[doc(hidden)]
+pub use linkme;
+
+pub use dioxus_fsrouter_macro::{route, router};
+
+pub use context::{RouteContext, use_route_context};
+pub use outlet::Outlet;
+pub use route::{ROUTES, RenderContext, Routable, RouteInfo};
+pub use router::{Router, RouterContext, use_route};
+
+pub mod prelude {
+    #[doc(hidden)]
+    pub use linkme;
+    pub use crate::context::{RouteContext, use_route_context};
+    pub use crate::outlet::Outlet;
+    pub use crate::route::Routable;
+    pub use crate::router::{Router, use_route};
+    pub use crate::{route, router};
 }

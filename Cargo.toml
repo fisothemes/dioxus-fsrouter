@@ -1,7 +1,7 @@
 [workspace]
 members = [
     "dioxus-fsrouter",
-    "dioxus-fsrouter-macro",
+    "dioxus-fsrouter-macro", "examples/basic-app",
 ]
 resolver = "2"
 

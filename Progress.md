@@ -13,11 +13,11 @@ Basic routing with exact path matching - no parameters, minimal validation, just
 - [x] Set up basic README
 
 ### 2. Core Types (`dioxus-fsrouter/src/`)
-- [ ] `route.rs` - Routable trait, RouteInfo, RenderContext
-- [ ] `router.rs` - Router component, RouterContext
-- [ ] `outlet.rs` - Outlet component
-- [ ] `matching.rs` - Route matching logic
-- [ ] `lib.rs` - Public API exports
+- [x] `route.rs` - Routable trait, RouteInfo, RenderContext
+- [x] `router.rs` - Router component, RouterContext
+- [x] `matching.rs` - Route matching logic
+- [x] `outlet.rs` - Outlet component
+- [x] `lib.rs` - Public API exports
 
 ### 3. Basic Macro (`dioxus-fsrouter-macro/src/`)
 - [ ] `lib.rs` - Proc macro exports
