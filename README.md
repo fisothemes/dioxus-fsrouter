@@ -16,7 +16,7 @@ A simple, filesystem-style router for [Dioxus](https://dioxuslabs.com/) applicat
 
 ## Features
 
-### 1. Route Definition
+### Route Definition
 
 ```rust
 #[route("/")]
@@ -84,7 +84,7 @@ mod admin {
 - Component props must match route parameters (compile-time checked)
 - Access route metadata via `use_route_context()`
 
-### 2. Router Setup
+### Router Setup
 
 ```rust
 fn App() -> Element {
@@ -104,7 +104,7 @@ fn App() -> Element {
 - Non-route components (Navbar, Footer) render normally
 - Routes auto-discovered from global inventory
 
-### 3. Navigation
+### Navigation
 
 ```rust
 fn Navbar() -> Element {
@@ -143,7 +143,7 @@ fn SomeComponent() -> Element {
 - Type-safe: Can't navigate to non-existent routes
 - Props validated at compile time
 
-### 4. Route Parameters
+### Route Parameters
 
 ```rust
 #[route("/user/:id/posts/:post_id")]
@@ -174,7 +174,7 @@ LinkTo::<UserPost> { id: "alice", post_id: 42, "View Post" }
 - Parse failures result in 404 or fallback route
 - Access raw params via `use_route_context().params`
 
-### 5. Route Context
+### Route Context
 
 ```rust
 #[route("/dashboard")]
@@ -210,7 +210,40 @@ fn Dashboard() -> Element {
 - Breadcrumb generation
 - Conditional rendering based on route type
 
-### 6. Fallback Routes (404 Handling)
+### Query Parameters
+
+```rust
+// Props-based query parameters
+#[route("/search")]
+#[component]
+fn Search(q: String, page: Option<u32>) -> Element {
+    rsx! {
+        div {
+            "Search: {q}"
+            "Page: {page.unwrap_or(1)}"
+        }
+    }
+}
+// URL: /search?q=rust&page=2 → q="rust", page=Some(2)
+
+// Hook-based query parameters
+#[route("/search")]
+#[component]
+fn SearchAlt() -> Element {
+    let q = use_query("q");
+    let page = use_query::<u32>("page");
+
+    rsx! { div { "Search: {q}, Page: {page.unwrap_or(1)}" } }
+}
+```
+
+**Capabilities:**
+- Query parameters are parsed from the URL
+- Can be accessed via `use_query()` hook or props
+- Type conversion (String, u32, i32, etc.)
+- Parse failures result in 404 or fallback route
+
+### Fallback Routes (404 Handling)
 
 ```rust
 #[fallback]
@@ -252,7 +285,7 @@ fn NotFound() -> Element {
 - Access attempted URL via `use_route_context()`
 - Cannot be combined with `#[route]` or `#[alias]`
 
-### 7. Compile-Time Validation
+### Compile-Time Validation
 
 #### URL Validation
 ```rust
@@ -357,3 +390,7 @@ This project is being implemented in multiple phases to ensure quality and maint
 You can view the current implementation status, completed features, and upcoming work in
 the [Progress.md](./Progress.md) file located in the root directory of this repository. This document is regularly
 updated to reflect the project's development state.
+
+### License
+
+This project is licensed under the [MIT](./LICENSE) license.
