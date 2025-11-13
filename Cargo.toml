@@ -13,6 +13,6 @@ license = "MIT"
 repository = "https://github.com/fisothemes/dioxus-fsrouter"
 
 [workspace.dependencies]
-dioxus = { version = "0.7", features = ["fullstack"] }
+dioxus = { version = "0.7", features = [] }
 dioxus-fsrouter = { path = "packages/dioxus-fsrouter" }
 dioxus-fsrouter-macro = { path = "packages/dioxus-fsrouter-macro" }

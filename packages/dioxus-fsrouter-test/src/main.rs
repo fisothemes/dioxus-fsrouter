@@ -2,7 +2,6 @@ use dioxus::prelude::*;
 use dioxus_fsrouter::prelude::*;
 
 fn main() {
-    println!("Starting Dioxus!");
     dioxus::launch(App);
 }
 
@@ -10,7 +9,8 @@ fn main() {
 #[component]
 fn App() -> Element{
     rsx!{
-        "Test!"
+        div { "Hello world!" }
+        Test { }
     }
 }
 
