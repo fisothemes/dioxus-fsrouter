@@ -1,6 +1,11 @@
 use dioxus::prelude::*;
 use std::collections::HashMap;
 
+
+/// Global route registry using linkme
+#[crate::linkme::distributed_slice]
+pub static ROUTES: [&'static RouteInfo];
+
 /// Context passed to route render functions
 #[derive(Debug, Clone)]
 pub struct RenderContext {
@@ -77,7 +82,3 @@ impl RouteInfo {
         }
     }
 }
-
-/// Global route registry using linkme
-#[linkme::distributed_slice]
-pub static ROUTES: [&'static RouteInfo];

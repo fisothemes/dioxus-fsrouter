@@ -76,6 +76,7 @@ pub fn route_impl(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
 
         // Register in global inventory with unique name
         #[::dioxus_fsrouter::linkme::distributed_slice(::dioxus_fsrouter::route::ROUTES)]
+        #[linkme(crate = ::dioxus_fsrouter::linkme)]
         static #route_registry_name: &'static ::dioxus_fsrouter::route::RouteInfo = &#route_info_static;
     })
 }

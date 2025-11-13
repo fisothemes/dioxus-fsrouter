@@ -1,30 +1,18 @@
 [workspace]
+resolver = "3"
 members = [
-    "dioxus-fsrouter",
-    "dioxus-fsrouter-macro", "examples/basic-app",
+    "packages/dioxus-fsrouter",
+    "packages/dioxus-fsrouter-macro",
+    "packages/dioxus-fsrouter-test",
 ]
-resolver = "2"
 
 [workspace.package]
-version = "0.1.0"
 edition = "2024"
 authors = ["Goodwill Mzumala <fisothemes@egmail.com>"]
 license = "MIT"
 repository = "https://github.com/fisothemes/dioxus-fsrouter"
-rust-version = "1.89.0"
 
 [workspace.dependencies]
-dioxus = "0.7"
-dioxus-fsrouter = { path = "dioxus-fsrouter" }
-dioxus-fsrouter-macro = { path = "dioxus-fsrouter-macro" }
-
-# Proc macro dependencies
-syn = { version = "2.0", features = ["full", "extra-traits", "visit"] }
-quote = "1.0"
-proc-macro2 = "1.0"
-darling = "0.21"
-
-# Runtime dependencies
-linkme = "0.3"
-regex = "1.10"
-once_cell = "1.19"
+dioxus = { version = "0.7", features = ["fullstack"] }
+dioxus-fsrouter = { path = "packages/dioxus-fsrouter" }
+dioxus-fsrouter-macro = { path = "packages/dioxus-fsrouter-macro" }

@@ -1,12 +1,11 @@
 [package]
 name = "dioxus-fsrouter"
-version.workspace = true
+version = "0.1.0"
 edition.workspace = true
+authors.workspace = true
 license.workspace = true
 repository.workspace = true
-authors.workspace = true
-rust-version.workspace = true
-description = "Component-based router for Dioxus with compile-time safety"
+description = "Easy to use component-based router for Dioxus with compile-time safety"
 keywords = ["dioxus", "router", "web", "ui", "framework"]
 categories = ["web-programming", "gui"]
 readme = "README.md"
@@ -14,9 +13,7 @@ readme = "README.md"
 [dependencies]
 dioxus = { workspace = true }
 dioxus-fsrouter-macro = { workspace = true }
-linkme = { workspace = true }
-regex = { workspace = true }
-once_cell = { workspace = true }
+linkme = "0.3"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 web-sys = { version = "0.3", features = ["Window", "Location", "History", "PopStateEvent"] }
@@ -24,7 +21,3 @@ wasm-bindgen = "0.2"
 
 [dev-dependencies]
 dioxus = { workspace = true }
-
-[[example]]
-name = "basic"
-path = "../examples/basic.rs"
