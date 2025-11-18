@@ -14,6 +14,10 @@ nav {
     background: #212121;
 }
 
+nav a {
+    text-decoration: none;
+}
+
 #nav-link {
     padding: 0.5rem 1rem;
     background: #424242;
