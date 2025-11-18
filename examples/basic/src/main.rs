@@ -60,9 +60,9 @@ fn print_all_routes() {
     let msg = "=== Printing registered routes... ===";
     let width = msg.len();
 
-    info!("{msg}");
+    println!("{msg}");
     for route in get_routes() {
-        println!("{} -> {}", route.path(), route.component_name());
+        println!("{} \t-> {}", route.path(), route.component_name());
     }
 
     println!("{:=<width$}", "");
