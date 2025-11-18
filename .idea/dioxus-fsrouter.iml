@@ -6,9 +6,10 @@
       <sourceFolder url="file://$MODULE_DIR$/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/tests" isTestSource="true" />
       <sourceFolder url="file://$MODULE_DIR$/examples/basic-app/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/packages/dioxus-fsrouter-macro/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/packages/dioxus-fsrouter/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/packages/dioxus-fsrouter-test/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/examples/basic/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/packages/fsrouter-macro/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/packages/fsrouter/src" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
     </content>
     <orderEntry type="inheritedJdk" />

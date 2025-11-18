@@ -13,11 +13,8 @@ readme = "README.md"
 [dependencies]
 dioxus = { workspace = true }
 dioxus-fsrouter-macro = { workspace = true }
-linkme = "0.3"
+inventory = { workspace = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 web-sys = { version = "0.3", features = ["Window", "Location", "History", "PopStateEvent"] }
 wasm-bindgen = "0.2"
-
-[dev-dependencies]
-dioxus = { workspace = true }

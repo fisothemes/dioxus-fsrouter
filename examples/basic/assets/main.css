@@ -1,0 +1,27 @@
+/* App-wide styling */
+html, body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    height: 100%;
+    width: 100%;
+    margin: 0 auto;
+    background: #d2d2d2;
+}
+
+nav {
+    display: flex;
+    gap: 1rem;
+    padding: 1rem;
+    background: #212121;
+}
+
+#nav-link {
+    padding: 0.5rem 1rem;
+    background: #424242;
+    color: white;
+    border-radius: 0.25rem;
+    cursor: pointer;
+}
+
+main {
+    padding: 2rem;
+}

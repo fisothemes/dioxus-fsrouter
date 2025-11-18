@@ -1,9 +1,9 @@
 [workspace]
 resolver = "3"
 members = [
-    "packages/dioxus-fsrouter",
-    "packages/dioxus-fsrouter-macro",
-    "packages/dioxus-fsrouter-test",
+    "packages/fsrouter",
+    "packages/fsrouter-macro",
+    "examples/basic",
 ]
 
 [workspace.package]
@@ -14,5 +14,10 @@ repository = "https://github.com/fisothemes/dioxus-fsrouter"
 
 [workspace.dependencies]
 dioxus = { version = "0.7", features = [] }
-dioxus-fsrouter = { path = "packages/dioxus-fsrouter" }
-dioxus-fsrouter-macro = { path = "packages/dioxus-fsrouter-macro" }
+dioxus-fsrouter = { path = "packages/fsrouter" }
+dioxus-fsrouter-macro = { path = "packages/fsrouter-macro" }
+inventory = "0.3"
+syn = "2.0"
+quote = "1.0"
+proc-macro2 = "1.0"
+tracing = "0.1"

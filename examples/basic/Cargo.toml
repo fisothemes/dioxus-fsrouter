@@ -1,5 +1,5 @@
 [package]
-name = "dioxus-fsrouter-test"
+name = "basic"
 version = "0.1.0"
 edition.workspace = true
 authors.workspace = true
@@ -7,5 +7,6 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
-dioxus = { workspace = true, features = []}
+dioxus = { workspace = true}
 dioxus-fsrouter = { workspace = true }
+tracing = {workspace = true}
