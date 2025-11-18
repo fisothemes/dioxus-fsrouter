@@ -1,5 +1,7 @@
 //! Route registry and utilities
 
+mod registry;
+
 use dioxus::prelude::*;
 use std::sync::Once;
 
