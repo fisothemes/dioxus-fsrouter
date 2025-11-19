@@ -373,6 +373,7 @@ dependencies = [
  "dioxus",
  "dioxus-fsrouter-macro",
  "inventory",
+ "thiserror 2.0.17",
  "wasm-bindgen",
  "web-sys",
 ]
