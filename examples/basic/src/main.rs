@@ -4,13 +4,6 @@ use dioxus_fsrouter::prelude::*;
 static CSS: Asset = asset!("/assets/main.css");
 
 fn main() {
-    print_all_routes();
-
-    validate_routes().unwrap_or_else(|e| {
-        error!("Error validating routes: \n{e}\n");
-        panic!()
-    });
-
     dioxus::launch(App);
 }
 
@@ -56,7 +49,7 @@ fn NavBar() -> Element {
     }
 }
 
-fn print_all_routes() {
+fn _print_all_routes() {
     let msg = "=== Printing registered routes... ===";
     let width = msg.len();
 
@@ -104,9 +97,19 @@ fn About() -> Element {
 fn Contact() -> Element {
     rsx! {
         h1 { "Contact" }
-        p {
-            style: "color: #6b7280; line-height: 1.6;",
-            "Feel free to get in touch!"
+        p { "Feel free to get in touch!" }
+        a {
+            style:
+                "display: flex; \
+                align-items: center; \
+                gap: 0.5rem; \
+                text-decoration: none;",
+            href: "https://github.com/fisothemes/dioxus-fsrouter",
+            img {
+                style: "width: 48px; height: 48px;",
+                src: "https://img.icons8.com/?size=100&id=12599&format=png&color=000000"
+            }
+            "GitHub"
         }
     }
 }
