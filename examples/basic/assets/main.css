@@ -4,13 +4,22 @@ html, body {
     height: 100%;
     width: 100%;
     margin: 0 auto;
+    color: #6b7280;
     background: #d2d2d2;
 
 }
 
+h1, h2, h3, h4, h5, h6 {
+    color: #000;
+}
+
 p {
-    color: #6b7280;
-    line-height: 1.5;
+    line-height: 1.6;
+}
+
+ul {
+    line-height: 1.8;
+    margin-top: 1rem;
 }
 
 nav {
@@ -30,6 +39,21 @@ nav a {
     color: white;
     border-radius: 0.25rem;
     cursor: pointer;
+}
+
+#nav-link:hover {
+    background: #525252;
+}
+
+#github-link {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    text-decoration: none;
+}
+
+#github-link:hover {
+    text-decoration: underline;
 }
 
 main {

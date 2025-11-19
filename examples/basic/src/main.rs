@@ -76,17 +76,14 @@ fn About() -> Element {
     rsx! {
         h1{ "About" }
         p {
-            style: "color: #6b7280; line-height: 1.6;",
             "This is a minimal router implementation using:"
         }
         ul {
-            style: "color: #6b7280; line-height: 1.8; margin-top: 1rem;",
             li { "inventory crate for compile-time registration" }
             li { "Procedural macros for the #[route] attribute" }
             li { "Dioxus components and context" }
         }
         p {
-            style: "color: #6b7280; line-height: 1.6; margin-top: 1rem;",
             "Phase 1 focuses on validating the core approach before building advanced features."
         }
     }
@@ -99,11 +96,7 @@ fn Contact() -> Element {
         h1 { "Contact" }
         p { "Feel free to get in touch!" }
         a {
-            style:
-                "display: flex; \
-                align-items: center; \
-                gap: 0.5rem; \
-                text-decoration: none;",
+            id: "github-link",
             href: "https://github.com/fisothemes/dioxus-fsrouter",
             img {
                 style: "width: 48px; height: 48px;",
