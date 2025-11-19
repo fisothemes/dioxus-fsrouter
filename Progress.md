@@ -2,12 +2,12 @@
 
 ## Goal
 
-Basic routing with **exact path matching** (no parameters, minimal validation) using a **modular runtime crate** and a **single `#[route]` proc macro**.
+Stand up **exact-path routing** (no params yet) backed by a dedicated runtime crate and a single `#[route]` proc macro.
 
-- Routes are attached directly to components with `#[route("/path")]`.
-- All routes register themselves at compile time via `inventory`.
-- The router tracks the current URL and renders the matching component into an `Outlet`.
-- Navigation is done via a simple `Link` component and a `use_navigation` hook.
+- Routes attach directly to components: `#[route("/path")]`
+- Registration happens automatically via `inventory` at compile time
+- Runtime provides `Router`, `Outlet`, `Link`, and a `use_navigation` hook
+- Simple example demonstrates the API end to end
 
 ---
 
@@ -17,526 +17,207 @@ Workspace layout:
 
 ```text
 dioxus-fsrouter/
-  Cargo.toml                  # Workspace definition
+  Cargo.toml
 
   packages/
-    fsrouter/                 # Runtime crate
+    fsrouter/
       Cargo.toml
       src/
-        lib.rs                # Public API / prelude
+        lib.rs
+        errors.rs
         route/
-          mod.rs              # Route module hub
-          registry.rs         # RouteInfo, inventory, get_routes()
-          matching.rs         # find_route(path)
-          validate.rs         # validate_routes()
+          mod.rs
+          validate.rs
         router/
-          mod.rs              # Router module hub
-          components.rs       # Router, Outlet, NavigationContext, get_current_path()
-          navigation.rs       # Navigation type, use_navigation(), navigate()
-          link.rs             # Link component
+          mod.rs
+          components.rs
+          navigation.rs
+        tests/
+          mod.rs
 
-    fsrouter-macro/           # Proc macro crate
+    fsrouter-macro/
       Cargo.toml
       src/
-        lib.rs                # #[route] attribute macro
+        lib.rs
 
   examples/
     basic/
       Cargo.toml
+      assets/
+        main.css
       src/
-        main.rs               # Minimal example app using the router
-````
+        main.rs
+```
 
 ### Checklist
-
-* [x] Create workspace `Cargo.toml` at repo root
-* [x] Create `packages/fsrouter` runtime crate
-* [x] Create `packages/fsrouter-macro` proc macro crate
-* [x] Wire crates together in workspace `Cargo.toml` (workspace dependencies, resolver, version, etc.)
+* [x] Configure workspace `Cargo.toml`
+* [x] Create runtime crate (`packages/fsrouter`)
+* [x] Create proc-macro crate (`packages/fsrouter-macro`)
+* [x] Set workspace dependencies + metadata
 * [x] Add top-level README
-* [x] Add `examples/basic` example crate
+* [x] Scaffold `examples/basic`
 
 ---
 
 ## 2. Core Types and Functions (`packages/fsrouter/src/`)
 
-All runtime routing logic lives in the `fsrouter` crate and is split into clear submodules.
+Runtime logic lives inside the `fsrouter` crate with clear module boundaries.
 
 ### 2.1 Route Module (`route/`)
 
-**Goal:** Owns *route metadata* and *registry operations* — no UI, no Dioxus components.
+The route subsystem owns metadata, registration, matching, and validation.
 
 Files:
 
 * `route/mod.rs`
-* `route/registry.rs`
-* `route/matching.rs`
 * `route/validate.rs`
 
 #### `route/mod.rs`
 
-Acts as a façade for the route subsystem:
-
-* Re-exports:
-
-  * `RouteInfo`
-  * `get_routes()`
-  * `find_route(path: &str)`
-  * `validate_routes()`
+Exports `RouteInfo`, the render fn type alias, and helpers for iterating registered routes.
 
 Checklist:
-
-* [ ] Create `route/mod.rs` and re-export public route APIs
-
-#### `route/registry.rs`
-
-Defines and registers routes.
-
-Responsibilities:
-
-* Define `RouteInfo`:
-
-  ```rust
-  pub struct RouteInfo {
-      pub path: &'static str,
-      pub component_name: &'static str,
-      pub render: fn() -> dioxus::prelude::Element,
-  }
-  ```
-
-* Declare an `inventory` collection of `RouteInfo` (or wrappers around it).
-
-* Provide:
-
-  ```rust
-  pub fn get_routes() -> &'static [RouteInfo];
-  ```
-
-Checklist:
-
-* [ ] Define `RouteInfo`
-* [ ] Integrate `inventory` (or similar) for global registration
-* [ ] Implement `get_routes()` returning a static slice of all routes
-
-#### `route/matching.rs`
-
-Contains matching logic for **exact path** routes.
-
-Responsibilities:
-
-* Implement:
-
-  ```rust
-  pub fn find_route(path: &str) -> Option<&'static RouteInfo>;
-  ```
-
-* Use `get_routes()` and simple equality (`route.path == path`).
-
-Checklist:
-
-* [ ] Implement `find_route(path)` using exact string comparison
+* [x] Define `RouteInfo` with `path`, `component_name`, and `render_fn`
+* [x] Collect routes globally with `inventory::collect!(RouteInfo)`
+* [x] Provide `get_routes()` iterator
+* [x] Provide `find_route(path: &str)` exact matcher (Phase 1 scope)
 
 #### `route/validate.rs`
 
-Performs basic route-level validation.
-
-Phase-1 scope:
-
-* Detect duplicate route paths.
-* Produce a human-friendly error message listing conflicts.
-
-API:
-
-```rust
-pub fn validate_routes() -> Result<(), String>;
-```
+Validates the registered routes before rendering starts.
 
 Checklist:
+* [x] Detect duplicate paths
+* [x] Detect “no routes registered”
+* [x] Return aggregated `ValidationErrors`
+* [x] Expose `validate_routes_or_panic()` for convenience
 
-* [ ] Implement duplicate-path detection
-* [ ] Construct clear error messages including paths and component names
-* [ ] Return `Ok(())` if everything is fine
+### 2.2 Error Types (`errors.rs`)
+
+Shared error definitions used by both the runtime and proc macro diagnostics.
+
+Checklist:
+* [x] Define `RouterError` enum (duplicate route, no routes, invalid path)
+* [x] Add `ValidationErrors` accumulator
+* [x] Ensure errors implement `std::error::Error` + Display
 
 ---
 
-### 2.2 Router Module (`router/`)
+## 3. Router Components (`router/`)
 
-**Goal:** Owns the runtime **routing behaviour** and **Dioxus components**.
+The router module exposes the user-facing components and navigation state.
 
 Files:
 
 * `router/mod.rs`
 * `router/components.rs`
 * `router/navigation.rs`
-* `router/link.rs`
 
-#### `router/mod.rs`
+### 3.1 Components
 
-Facade for the router subsystem.
-
-* Re-exports:
-
-  * Components:
-
-    * `Router`
-    * `Outlet`
-  * Navigation:
-
-    * `Navigation`
-    * `use_navigation`
-    * `navigate`
-  * UI helper:
-
-    * `Link`
+`Router`, `Outlet`, and `Link` live in `components.rs`.
 
 Checklist:
+* [x] `Router` sets up the navigation signal, validates routes on mount, and wires WASM popstate listeners
+* [x] Provide `NavigationContext` via `use_context_provider`
+* [x] `Outlet` consumes context, runs `find_route`, and renders the active component (or a 404 fallback)
+* [x] `Link` renders `<a>` tags and delegates navigation through the hook
 
-* [ ] Create `router/mod.rs` and re-export all router-related items
+### 3.2 Navigation
 
-#### `router/components.rs`
-
-Contains the actual Dioxus router components and context.
-
-Responsibilities:
-
-* `Router` component:
-
-  * Holds `Signal<String>` for the current path.
-  * Reads an initial path from `get_current_path()`.
-  * Runs `validate_routes()` once on first render and panics on error.
-  * Sets up a `popstate` listener (on WASM) to respond to browser back/forward.
-  * Provides a `NavigationContext` via `use_context_provider`.
-
-* `Outlet` component:
-
-  * Reads the current path from `NavigationContext`.
-  * Calls `find_route(&path)` to locate a `RouteInfo`.
-  * Renders `route.render()` when found.
-  * Renders a simple “404 – Not Found” fallback when not found.
-
-* `NavigationContext` (internal):
-
-  ```rust
-  #[derive(Clone, Copy)]
-  pub(crate) struct NavigationContext {
-      pub(crate) current_route: Signal<String>,
-  }
-  ```
-
-* `get_current_path()`:
-
-  * On WASM: returns `window.location.pathname` (or `"/"` on failure).
-  * On non-WASM: returns `"/"`.
+`router/navigation.rs` implements programmatic navigation primitives.
 
 Checklist:
-
-* [ ] Implement `get_current_path()` with WASM / non-WASM branches
-* [ ] Implement `NavigationContext` with `Signal<String>`
-* [ ] Implement `Router` component:
-
-  * [ ] Set up route validation on the first render
-  * [ ] Initialize route signal from `get_current_path()`
-  * [ ] Attach `popstate` listener on WASM to update route
-  * [ ] Expose `NavigationContext` using `use_context_provider`
-* [ ] Implement `Outlet` component with basic 404 fallback
-
-#### `router/navigation.rs`
-
-Provides a programmatic navigation API and hook.
-
-Responsibilities:
-
-* Define `Navigation` struct that wraps access to the `NavigationContext` and `current_route` signal.
-
-* Implement:
-
-  ```rust
-  pub fn use_navigation() -> Navigation;
-  ```
-
-* Implement a convenience function:
-
-  ```rust
-  pub fn navigate(path: String);
-  ```
-
-* Implement methods on `Navigation`:
-
-  ```rust
-  impl Navigation {
-      pub fn push(&mut self, path: impl Into<String>);
-      pub fn replace(&mut self, path: impl Into<String>);
-      pub fn go_back(&self);
-      pub fn go_forward(&self);
-      pub fn current_path(&self) -> String;
-  }
-  ```
-
-  * On WASM: use `window.history().push_state_with_url` / `replace_state_with_url` and browser `back`/`forward`.
-  * On non-WASM: log to stdout and/or no-op.
-
-Checklist:
-
-* [ ] Implement `Navigation` type
-* [ ] Implement `use_navigation()` hook using `use_context::<NavigationContext>()`
-* [ ] Implement `navigate(path)` convenience wrapper (calls `push`)
-* [ ] Implement `push`, `replace`, `go_back`, `go_forward`, `current_path` with WASM / non-WASM branches
-
-#### `router/link.rs`
-
-Provides a minimal `<a>`-like component for navigation.
-
-Responsibilities:
-
-* Implement:
-
-  ```rust
-  #[component]
-  pub fn Link(to: String, children: Element) -> Element;
-  ```
-
-Behaviour:
-
-* Renders `<a href="{to}">...</a>`.
-* On `onclick`:
-
-  * Calls `e.prevent_default()`.
-  * Uses `use_navigation().push(to.clone())` to navigate without a page reload.
-
-Checklist:
-
-* [ ] Implement `Link` component using `use_navigation()`
-* [ ] Prevent default click behaviour
-* [ ] Ensure `href` still reflects the target path for accessibility / middle-click
+* [x] Define `Navigation` struct backed by `Signal<String>`
+* [x] Implement `push`, `replace`, `go_back`, `go_forward`, and `current_path`
+* [x] Integrate browser history APIs when targeting WASM
+* [x] Provide `use_navigation()` hook for consuming components
 
 ---
 
-### 2.3 `lib.rs` (Public API)
+## 4. Public API (`lib.rs`)
 
-**Goal:** Provide a clean public surface and a `prelude` for users.
+Ties everything together:
 
-Responsibilities:
-
-* Declare:
-
-  ```rust
-  pub mod route;
-  pub mod router;
-  ```
-
-* Re-export core types / functions:
-
-  ```rust
-  pub use route::{RouteInfo, get_routes, find_route, validate_routes};
-  pub use router::{Router, Outlet, Link, Navigation, use_navigation, navigate};
-  ```
-
-* Re-export `inventory` (needed by macro crate via `dioxus_fsrouter::inventory`).
-
-* Re-export the macro crate as `macros`, and possibly `route` from there.
-
-* Provide a `prelude` module that includes:
-
-  * `route` macro
-  * `Router`, `Outlet`, `Link`
-  * `Navigation`, `use_navigation`
-  * `get_routes`, `validate_routes`
+* Re-exports runtime types (`Router`, `Outlet`, `Link`, `Navigation`, `get_routes`, `validate_routes`, etc.)
+* Re-exports the macro crate as `dioxus_fsrouter::macros` and exposes `inventory` for the proc macro
+* Provides a `prelude` module so downstream apps can `use dioxus_fsrouter::prelude::*;`
 
 Checklist:
-
-* [ ] Wire up module declarations for `route` and `router`
-* [ ] Re-export `RouteInfo`, `get_routes`, `find_route`, `validate_routes`
-* [ ] Re-export `Router`, `Outlet`, `Link`, `Navigation`, `use_navigation`, `navigate`
-* [ ] Re-export `inventory` for proc macro use
-* [ ] Define `prelude` module for ergonomic imports
+* [x] Public API exports finalized
+* [x] Prelude assembled for ergonomic consumer imports
 
 ---
 
-## 3. Basic Macro (`packages/fsrouter-macro/src/`)
+## 5. Proc Macro (`packages/fsrouter-macro`)
 
-**Goal:** Provide a single attribute macro `#[route("/path")]` that:
-
-* Validates the provided path string a little.
-* Registers the route in the global inventory at compile time.
-* Generates a wrapper render function with the correct signature.
-
-### 3.1 `lib.rs`
-
-Responsibilities:
-
-* Export the proc macro:
-
-  ```rust
-  #[proc_macro_attribute]
-  pub fn route(attr: TokenStream, item: TokenStream) -> TokenStream;
-  ```
-
-* Implementation strategy:
-
-  * Parse `attr` as `LitStr` (e.g. `"/"`, `"/about"`).
-  * Parse `item` as `syn::ItemFn`.
-  * Validate:
-
-    * Path must start with `/`.
-    * Function must have **no input parameters** (Phase 1: no route params).
-  * Generate:
-
-    1. The original function is unchanged.
-
-    2. A wrapper:
-
-       ```rust
-       #[allow(non_snake_case)]
-       fn __render_<FuncName>() -> ::dioxus::prelude::Element {
-           <FuncName>()
-       }
-       ```
-
-    3. An `inventory::submit!` block:
-
-       ```rust
-       ::dioxus_fsrouter::inventory::submit! {
-           ::dioxus_fsrouter::RouteInfo::new(
-               "<path>",
-               concat!(module_path!(), "::", stringify!(<FuncName>)),
-               __render_<FuncName>,
-           )
-       }
-       ```
+The `#[route("/path")]` attribute marks Dioxus components as routes.
 
 Checklist:
+* [x] Validate the literal path (must start with `/`, no trailing slash except `/`, no `//`, spaces, `?`, or `:`)
+* [x] Reject components with parameters (Phase 2 feature)
+* [x] Generate wrapper render fn calling the user component
+* [x] Submit `RouteInfo` via `inventory::submit!` referencing the runtime crate
 
-* [ ] Implement `#[route]` attribute macro
-
-  * [ ] Parse path literal
-  * [ ] Parse target function
-  * [ ] Validate path (`starts_with('/')`)
-  * [ ] Validate zero parameters (no route params in Phase 1)
-  * [ ] Generate wrapper render function
-  * [ ] Generate `inventory::submit!` call
-
-*(Deeper macro splitting into `route/mod.rs`, `parse.rs`, `codegen.rs` can be deferred to a later phase.)*
+Notes:
+* Any unsupported pattern fails compilation with targeted guidance
+* The macro already imports `::dioxus_fsrouter` so downstream users only need `dioxus-fsrouter = { ... }`
 
 ---
 
-## 4. Router Macro (Future Phase)
+## 6. Example App (`examples/basic`)
 
-**Not part of Phase 1.**
+Minimal showcase that assembles the public API.
 
-A future DX improvement is a `router!` macro so users can write:
-
-```rust
-fn App() -> Element {
-    router! {
-        Navbar {}
-        main {
-            Outlet {}
-        }
-        Footer {}
-    }
-}
-```
-
-Which would expand to:
-
-```rust
-fn App() -> Element {
-    rsx! {
-        Router {
-            Navbar {}
-            main { Outlet {} }
-            Footer {}
-        }
-    }
-}
-```
-
-Phase 1 is intentionally built **without** this macro; the core router and route system should stand on their own.
-
-Checklist (reserved for later):
-
-* [ ] `router/mod.rs` in macro crate for `router!` macro
-* [ ] Codegen that wraps RSX children in `Router { ... }`
+Checklist:
+* [x] Three routes (`/`, `/about`, `/contact`) using `#[route]`
+* [x] Global layout with `Router`, `NavBar`, and `Outlet`
+* [x] Link-based navigation showcasing the hook
+* [x] Static CSS injected via `document::Stylesheet`
+* [x] Helper function to print `get_routes()` (manual sanity check)
 
 ---
 
-## 5. Testing
+## 7. Testing
 
-**Goal:** Prove Phase 1 works end-to-end with exact routes only.
+### 7.1 Runtime Unit Tests
 
-### 5.1 Basic Integration Test (in `fsrouter`)
+Location: `packages/fsrouter/src/tests.rs`
 
-* [ ] Build a small module with two routes:
+Checklist:
+* [x] Validate `RouterError` Display output
+* [x] Validate `ValidationErrors` aggregation helpers
 
-  ```rust
-  #[route("/")]
-  #[component]
-  fn Home() -> Element { /* ... */ }
+### 7.2 Integration / Smoke Tests
 
-  #[route("/about")]
-  #[component]
-  fn About() -> Element { /* ... */ }
-  ```
+Checklist:
+* [x] Register routes via the macro and assert `get_routes().len() >= 2`
+* [x] Assert `find_route("/")` and `find_route("/about")` return `Some`
+* [x] Ensure `validate_routes()` succeeds with unique routes
+* [ ] Cover WASM/history hooks (headless test harness or wasm-bindgen test target)
 
-* [ ] Assert:
+### 7.3 Example Coverage
 
-  * `get_routes().len() >= 2`
-  * `find_route("/")` is `Some`
-  * `find_route("/about")` is `Some`
-  * `validate_routes()` returns `Ok(())` when there are no conflicts
-
-### 5.2 Example: `examples/basic`
-
-* [ ] Add `examples/basic/Cargo.toml` and `src/main.rs`
-* [ ] Demonstrate:
-
-  * Two simple routes with `#[route]`
-  * Using `Router` + `Outlet` as the main layout
-  * Using `Link` for navigation
-
-Example skeleton:
-
-```rust
-use dioxus::prelude::*;
-use dioxus_fsrouter::prelude::*;
-
-#[route("/")]
-#[component]
-fn Home() -> Element {
-    rsx! { div { "Home" } }
-}
-
-#[route("/about")]
-#[component]
-fn About() -> Element {
-    rsx! { div { "About" } }
-}
-
-fn App() -> Element {
-    rsx! {
-        Router {
-            nav {
-                Link { to: "/".into(), "Home" }
-                Link { to: "/about".into(), "About" }
-            }
-            main {
-                Outlet {}
-            }
-        }
-    }
-}
-
-fn main() {
-    dioxus::launch(App);
-}
-```
+Checklist:
+* [ ] Add CI job to build `examples/basic` (desktop + wasm)
+* [ ] Verify `Router` renders `Outlet` correctly via screenshot/snapshot test (optional)
 
 ---
 
-Once all checkboxes above are satisfied, **Phase 1 is complete**:
+## 8. Documentation & DX
 
-* Routes are declared on components.
-* Routes auto-register at compile time.
-* Router can match and render them.
-* Navigation works for exact paths.
-* The module layout is clean and ready for Phase 2 (parameters, route context, etc.).
+Checklist:
+* [ ] Trim README claims that refer to Phase 2 features (aliases, params, `router!`, `LinkTo`, fallback annotations)
+* [ ] Add README section that mirrors the example app code
+* [ ] Document `validate_routes_or_panic()` usage in README/guide
+* [ ] Provide short migration note for the eventual typed-navigation API
+
+---
+
+## Next Steps & Risks
+
+1. **Integration tests:** Without real route registration tests, regressions in `inventory` or the macro could slip through CI.
+2. **Docs drift:** README currently advertises Phase 2 capabilities. Decide whether to ship the promised features or rewrite the README before publishing.
+3. **Typed navigation:** Current API uses string paths only; plan the typed `LinkTo`/`Navigation::push<T>` story before introducing parameters to avoid churn.
+4. **Phase 2 design:** Route params, aliases, and the `router!` macro still need RFC-level planning plus code generation support.
+5. **Developer tooling:** Consider lightweight logging/tracing for route registration (feature-gated) to aid debugging in larger apps.
