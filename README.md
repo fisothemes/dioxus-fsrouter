@@ -4,14 +4,14 @@
 [![Documentation](https://docs.rs/dioxus-fsrouter/badge.svg)](https://docs.rs/dioxus-fsrouter)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-A simple, filesystem-style router for [Dioxus](https://dioxuslabs.com/) applications that provides component-based routing with compile-time safety, automatic route registration, and zero boilerplate.
+A simple, attribute-based router for [Dioxus](https://dioxuslabs.com/) applications that provides component-based routing with compile-time safety, automatic route registration, and minimal boilerplate.
 
 ## Core Principles
 
 1. **Component-First**: Routes are attached directly to components via attributes
 2. **Type-Safe**: All navigation is type-checked at compile time
-3. **Zero Boilerplate**: No enums, no manual registration, no string-based routing
-4. **Compile-Time Validation**: Route conflicts and invalid URLs caught at compile time
+3. **Minimal Boilerplate**: No enums, no manual registration, no string-based routing
+4. **Compile-Time Validation**: Invalid URLs caught at compile time
 5. **Auto-Discovery**: Routes automatically register themselves via global inventory
 
 ## Features
@@ -88,7 +88,7 @@ mod admin {
 
 ```rust
 fn App() -> Element {
-    router! {
+    Router {
         Navbar {}
         main {
             Outlet {}
@@ -99,7 +99,7 @@ fn App() -> Element {
 ```
 
 **Capabilities:**
-- `router!` macro sets up routing context
+- `Router` component that manages application routing logic
 - `Outlet` component renders matched route
 - Non-route components (Navbar, Footer) render normally
 - Routes auto-discovered from global inventory
@@ -300,26 +300,6 @@ fn NotFound() -> Element {
 #[route("/trailing/")]         // ❌ Warning: Trailing slash (optional)
 ```
 
-#### Duplicate Route Detection
-```rust
-#[route("/about")]
-fn About() -> Element { ... }
-
-#[route("/about")]             // ❌ Error: Route "/about" already registered by `About`
-fn AboutUs() -> Element { ... }
-
-#[route("/contact")]
-#[alias("/about")]             // ❌ Error: Alias "/about" conflicts with route `About`
-fn Contact() -> Element { ... }
-
-#[route("/home")]
-#[alias("/")]
-fn HomePage() -> Element { ... }
-
-#[route("/")]                  // ❌ Error: Route "/" conflicts with alias on `HomePage`
-fn Index() -> Element { ... }
-```
-
 #### Fallback Validation
 ```rust
 #[fallback]
@@ -391,6 +371,6 @@ You can view the current implementation status, completed features, and upcoming
 the [Progress.md](./Progress.md) file located in the root directory of this repository. This document is regularly
 updated to reflect the project's development state.
 
-### License
+### Licence
 
-This project is licensed under the [MIT](./LICENSE) license.
+This project is licensed under the [MIT](./LICENSE) licence.
