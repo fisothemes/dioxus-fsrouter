@@ -281,21 +281,166 @@ Checklist:
 
 ### 2.2.1 Priority Algorithm
 
-To ensure deterministic routing when multiple patterns match a URL (e.g., `/user/new` vs `/user/:id`), the router calculates a priority score. Higher scores take precedence, prioritising specificity and depth.
+To ensure deterministic routing when multiple patterns could match a URL (e.g., `/user/new` vs `/user/:id`), the router calculates a priority score. Higher scores take precedence, prioritising specificity, position, and depth.
 
-Scoring Rules:
-*   Static Segments: +100 points (specific matches are preferred)
-*   Dynamic Segments: +50 points (generic matches are secondary)
-*   Length Bonus: +1 point per segment (deeper routes are preferred)
+#### Scoring Rules
 
-Examples:
+The algorithm uses position-weighted scoring where segments earlier in the path have greater influence:
 
-```text
-/user/new            = 100 + 100 + 2 = 202  (Winner over /user/:id)
-/user/:id            = 100 +  50 + 2 = 152
-/user/:id/posts      = 100 +  50 + 100 + 3 = 253
-/:type/:id           =  50 +  50 + 2 = 102
+- **Static Segments**: Base score of 10,000 points
+- **Dynamic Segments**: Base score of 1,000 points
+- **Position Multiplier**: Segments are weighted by their position (the first segment has the highest weight)
+- **Length Bonus**: +1 point per segment (as a tiebreaker)
+
+#### Formula
+```rust
+for each segment at position i (0-indexed from left):
+    position_weight = (total_segments - i)
+    
+    if Static:
+        score += 10,000 × position_weight
+    if Dynamic:
+        score += 1,000 × position_weight
+
+score += total_segments  // length bonus
 ```
+
+#### Examples
+
+* **Basic Case**: Static vs Dynamic (Same Position)
+  ```text
+  URL: /user/new
+  
+  Pattern 1: /user/new
+    - Static(user):  10,000 × 2 = 20,000
+    - Static(new):   10,000 × 1 = 10,000
+    - Length bonus:  2
+    - Total: 30,002  (Winner)
+  
+  Pattern 2: /user/:id
+    - Static(user):  10,000 × 2 = 20,000
+    - Dynamic(id):   1,000 × 1  = 1,000
+    - Length bonus:  2
+    - Total: 21,002
+  ```
+  **Result**: `/user/new` wins because the static segment at position 2 outweighs the dynamic segment.
+
+
+* **Advanced Case**: Same Static/Dynamic Ratio, Different Positions
+  ```text
+  URL: /api/users/123
+  
+  Pattern 1: /api/:resource/:id
+    - Static(api):      10,000 × 3 = 30,000
+    - Dynamic(resource): 1,000 × 2 = 2,000
+    - Dynamic(id):       1,000 × 1 = 1,000
+    - Length bonus:      3
+    - Total: 33,003  (Winner)
+  
+  Pattern 2: /:version/users/:id
+    - Dynamic(version): 1,000 × 3  = 3,000
+    - Static(users):   10,000 × 2  = 20,000
+    - Dynamic(id):      1,000 × 1  = 1,000
+    - Length bonus:     3
+    - Total: 24,003
+  ```
+  **Result**: `/api/:resource/:id` wins because the static segment appears first (position 3 weight), which is more valuable than a static segment at position 2.
+
+
+* **Complex Case**: Multiple Routes with the Same Segment Count
+  ```text
+  URL: /user/new/posts
+  
+  Pattern 1: /user/new/posts  (all static)
+    - Static(user):  10,000 × 3 = 30,000
+    - Static(new):   10,000 × 2 = 20,000
+    - Static(posts): 10,000 × 1 = 10,000
+    - Length bonus:  3
+    - Total: 60,003  (Winner)
+  
+  Pattern 2: /user/:id/posts  (mixed)
+    - Static(user):  10,000 × 3 = 30,000
+    - Dynamic(id):    1,000 × 2 = 2,000
+    - Static(posts): 10,000 × 1 = 10,000
+    - Length bonus:  3
+    - Total: 42,003
+  
+  Pattern 3: /:type/new/posts  (mixed)
+    - Dynamic(type):  1,000 × 3 = 3,000
+    - Static(new):   10,000 × 2 = 20,000
+    - Static(posts): 10,000 × 1 = 10,000
+    - Length bonus:  3
+    - Total: 33,003
+  ```
+  **Result**: Specificity order is preserved: all-static `>` early-static `>` late-static.
+
+#### Why Position Matters
+
+Position-based weighting ensures that static segments **early** in the path are valued more than those later. This reflects real-world routing semantics:
+
+- `/api/v1/:resource` - API version is more fundamental than a resource type
+- `/docs/guide/:section` - Documentation structure is more specific than a section
+- `/admin/users/:id` - Admin area is more privileged than user selection
+
+#### Edge Cases
+
+* **Different Segment Counts**: Routes with different segment counts **cannot conflict** because matching requires exact segment count equality.
+
+  ```text
+  URL: /files/settings  (2 segments)
+  
+  ✅ Can match: /files/settings   (2 segments)
+  ✅ Can match: /files/:name       (2 segments)  
+  ❌ Cannot match: /files/:drive/:folder  (3 segments)
+  ```
+
+  The priority algorithm only compares routes **after** segment count filtering.
+
+
+* **Ties (Extremely Rare)**: If two patterns have identical scores (same static/dynamic segments at same positions), the order is determined by registration order (first registered wins). In practice, this only occurs with functionally identical patterns:
+
+  ```text
+  /user/:id  vs.  /user/:user_id    (functionally identical)
+  ```
+
+  This is considered a validation error and should be caught at startup.
+
+#### Implementation
+
+```rust
+fn calculate_priority(segments: &[Segment]) -> i32 {
+    let mut priority = 0;
+    let len = segments.len();
+    
+    for (index, segment) in segments.iter().enumerate() {
+        let position_weight = (len - index) as i32;
+        
+        let base_score = match segment {
+            Segment::Static(_) => 10_000,
+            Segment::Param(_) => 1_000,
+        };
+        
+        priority += base_score * position_weight;
+    }
+    
+    // Length bonus for tiebreaking
+    priority += len as i32;
+    
+    priority
+}
+```
+
+#### Summary
+
+The position-weighted priority algorithm ensures:
+
+1. **Static segments always beat dynamic** (at the same position)
+2. **Earlier segments have more weight** (position matters)
+3. **Deeper routes preferred** (length bonus as tiebreaker)
+4. **Deterministic matching** (no ambiguity)
+5. **Intuitive behaviour** (matches developer expectations)
+
+This creates a natural hierarchy: specificity → position → depth.
 
 ---
 
