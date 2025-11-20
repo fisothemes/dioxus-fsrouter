@@ -226,8 +226,8 @@ Route parameter support stays backward compatible while layering in new runtime 
 
 ```rust
 pub enum RenderFn {
-    Static(fn() -> Element),                             // Phase 1
-    WithParams(fn(HashMap<String, String>) -> Element),  // Phase 2
+    Static(fn() -> Element),                                    // Phase 1
+    WithParams(fn(HashMap<String, String>) -> Result<Element, ParseError>)),  // Phase 2
 }
 ```
 
@@ -477,14 +477,14 @@ pub fn find_route(path: &str) -> Option<(&'static RouteInfo, HashMap<String, Str
 ## 2.4 Proc Macro (`packages/fsrouter-macro/src/lib.rs`)
 
 Checklist:
-* [ ] Detect `:param` syntax in path
+* [ ] Detect `:param` syntax in a path
 * [ ] Extract component parameter names and types
 * [ ] Validate route params match component props
 * [ ] Generate appropriate wrapper:
   * Static wrapper for no params
   * Dynamic wrapper with `FromStr` parsing
 * [ ] Handle parse errors:
-  * Debug: panic with helpful message
+  * Debug: panic with a helpful message
   * Release: return default value (triggers 404)
 * [ ] Add new validation errors
 
@@ -511,18 +511,17 @@ Generated code example:
 fn UserProfile(id: String) -> Element { ... }
 
 // Output:
-fn __render_UserProfile(params: HashMap<String, String>) -> Element {
+fn __render_UserProfile(params: HashMap<String, String>) -> Result<Element, ParseError> {
     let id = params.get("id")
-        .and_then(|s| s.parse::<String>().ok())
-        .unwrap_or_else(|| {
-            #[cfg(debug_assertions)]
-            panic!("Failed to parse 'id' as String");
-            
-            #[cfg(not(debug_assertions))]
-            String::new()
-        });
-
-    UserProfile { id }
+        .ok_or(ParseError::Missing("id"))?
+        .parse::<u32>()
+        .map_err(|_| ParseError::InvalidType { 
+            param: "id",
+            expected: "u32",
+            value: params.get("id").unwrap().clone(),
+        })?;
+  
+    Ok(UserProfile { id })
 }
 
 inventory::submit! {
