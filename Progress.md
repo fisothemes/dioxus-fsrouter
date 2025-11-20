@@ -11,7 +11,7 @@ Stand up **exact-path routing** (no params yet) backed by a dedicated runtime cr
 
 ---
 
-## 1. Project Structure Setup
+## 1.1 Project Structure Setup
 
 Workspace layout:
 
@@ -59,11 +59,11 @@ dioxus-fsrouter/
 
 ---
 
-## 2. Core Types and Functions (`packages/fsrouter/src/`)
+## 1.2 Core Types and Functions (`packages/fsrouter/src/`)
 
 Runtime logic lives inside the `fsrouter` crate with clear module boundaries.
 
-### 2.1 Route Module (`route/`)
+### 1.2.1 Route Module (`route/`)
 
 The route subsystem owns metadata, registration, matching, and validation.
 
@@ -92,7 +92,7 @@ Checklist:
 * [x] Return aggregated `ValidationErrors`
 * [x] Expose `validate_routes_or_panic()` for convenience
 
-### 2.2 Error Types (`errors.rs`)
+### 1.2.2 Error Types (`errors.rs`)
 
 Shared error definitions used by both the runtime and proc macro diagnostics.
 
@@ -103,7 +103,7 @@ Checklist:
 
 ---
 
-## 3. Router Components (`router/`)
+## 1.3 Router Components (`router/`)
 
 The router module exposes the user-facing components and navigation state.
 
@@ -113,7 +113,7 @@ Files:
 * `router/components.rs`
 * `router/navigation.rs`
 
-### 3.1 Components
+### 1.3.1 Components
 
 `Router`, `Outlet`, and `Link` live in `components.rs`.
 
@@ -123,7 +123,7 @@ Checklist:
 * [x] `Outlet` consumes context, runs `find_route`, and renders the active component (or a 404 fallback)
 * [x] `Link` renders `<a>` tags and delegates navigation through the hook
 
-### 3.2 Navigation
+### 1.3.2 Navigation
 
 `router/navigation.rs` implements programmatic navigation primitives.
 
@@ -135,7 +135,7 @@ Checklist:
 
 ---
 
-## 4. Public API (`lib.rs`)
+## 1.4 Public API (`lib.rs`)
 
 Ties everything together:
 
@@ -149,7 +149,7 @@ Checklist:
 
 ---
 
-## 5. Proc Macro (`packages/fsrouter-macro`)
+## 1.5 Proc Macro (`packages/fsrouter-macro`)
 
 The `#[route("/path")]` attribute marks Dioxus components as routes.
 
@@ -165,7 +165,7 @@ Notes:
 
 ---
 
-## 6. Example App (`examples/basic`)
+## 1.6 Example App (`examples/basic`)
 
 Minimal showcase that assembles the public API.
 
@@ -178,9 +178,9 @@ Checklist:
 
 ---
 
-## 7. Testing
+## 1.7 Testing
 
-### 7.1 Runtime Unit Tests
+### 1.7.1 Runtime Unit Tests
 
 Location: `packages/fsrouter/src/tests.rs`
 
@@ -188,7 +188,7 @@ Checklist:
 * [x] Validate `RouterError` Display output
 * [x] Validate `ValidationErrors` aggregation helpers
 
-### 7.2 Integration / Smoke Tests
+### 1.7.2 Integration / Smoke Tests
 
 Checklist:
 * [x] Register routes via the macro and assert `get_routes().len() >= 2`
@@ -196,28 +196,8 @@ Checklist:
 * [x] Ensure `validate_routes()` succeeds with unique routes
 * [ ] Cover WASM/history hooks (headless test harness or wasm-bindgen test target)
 
-### 7.3 Example Coverage
+### 1.7.3 Example Coverage
 
 Checklist:
 * [ ] Add CI job to build `examples/basic` (desktop + wasm)
 * [ ] Verify `Router` renders `Outlet` correctly via screenshot/snapshot test (optional)
-
----
-
-## 8. Documentation & DX
-
-Checklist:
-* [ ] Trim README claims that refer to Phase 2 features (aliases, params, `router!`, `LinkTo`, fallback annotations)
-* [ ] Add README section that mirrors the example app code
-* [ ] Document `validate_routes_or_panic()` usage in README/guide
-* [ ] Provide short migration note for the eventual typed-navigation API
-
----
-
-## Next Steps & Risks
-
-1. **Integration tests:** Without real route registration tests, regressions in `inventory` or the macro could slip through CI.
-2. **Docs drift:** README currently advertises Phase 2 capabilities. Decide whether to ship the promised features or rewrite the README before publishing.
-3. **Typed navigation:** Current API uses string paths only; plan the typed `LinkTo`/`Navigation::push<T>` story before introducing parameters to avoid churn.
-4. **Phase 2 design:** Route params, aliases, and the `router!` macro still need RFC-level planning plus code generation support.
-5. **Developer tooling:** Consider lightweight logging/tracing for route registration (feature-gated) to aid debugging in larger apps.
