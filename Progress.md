@@ -1,8 +1,8 @@
-# Phase 1: Core Foundation Implementation
+# Phase 1: Core Foundation
 
 ## Goal
 
-Stand up **exact-path routing** (no params yet) backed by a dedicated runtime crate and a single `#[route]` proc macro.
+Establish **exact-path routing** (no params yet) backed by a dedicated runtime crate and a single `#[route]` proc macro.
 
 - Routes attach directly to components: `#[route("/path")]`
 - Registration happens automatically via `inventory` at compile time
@@ -144,7 +144,7 @@ Ties everything together:
 * Provides a `prelude` module so downstream apps can `use dioxus_fsrouter::prelude::*;`
 
 Checklist:
-* [x] Public API exports finalized
+* [x] Public API exports finalised
 * [x] Prelude assembled for ergonomic consumer imports
 
 ---
@@ -201,3 +201,395 @@ Checklist:
 Checklist:
 * [ ] Add CI job to build `examples/basic` (desktop + wasm)
 * [ ] Verify `Router` renders `Outlet` correctly via screenshot/snapshot test (optional)
+
+---
+
+# Phase 2: Route Parameters
+
+## Goal
+
+Support dynamic route segments like `/user/:id` with automatic parameter extraction and type conversion.
+
+- Parameters passed as component props
+- `FromStr` trait for type conversion
+- 404 or `#[fallback]` on parse errors
+- Ordering for multiple parameters
+- Exact matching by default (options later)
+
+---
+
+## 2.1 Architecture Updates
+
+Route parameter support stays backward compatible while layering in new runtime shapes.
+
+### 2.1.1 Render Function Variants
+
+```rust
+pub enum RenderFn {
+    Static(fn() -> Element),                             // Phase 1
+    WithParams(fn(HashMap<String, String>) -> Element),  // Phase 2
+}
+```
+
+Benefits:
+* Backward compatible
+* Type-safe
+* Zero runtime overhead
+* Clear intent
+
+### 2.1.2 RouteInfo Fields
+
+```rust
+pub struct RouteInfo {
+    path: &'static str,
+    pattern: OnceCell<RoutePattern>,  // Lazy-initialised
+    component_name: &'static str,
+    render_fn: RenderFn,              // Now an enum
+}
+```
+
+### 2.1.3 Pattern Model
+
+```rust
+pub struct RoutePattern {
+    raw: String,
+    segments: Vec<Segment>,
+    priority: i32,
+}
+
+pub enum Segment {
+    Static(String),  // "user"
+    Param(String),   // ":id"
+}
+```
+
+---
+
+## 2.2 Pattern Matching Core (`packages/fsrouter/src/route/`)
+
+Files:
+* `packages/fsrouter/src/route/pattern.rs` (new)
+* `packages/fsrouter/src/route/mod.rs` (update)
+
+Checklist:
+* [x] Create `RoutePattern` struct
+* [x] Create `Segment` enum
+* [x] Implement `parse()`
+* [x] Implement `matches()`
+* [x] Implement `calculate_priority()`
+* [x] Write comprehensive tests
+
+### 2.2.1 Priority Algorithm
+
+To ensure deterministic routing when multiple patterns match a URL (e.g., `/user/new` vs `/user/:id`), the router calculates a priority score. Higher scores take precedence, prioritising specificity and depth.
+
+Scoring Rules:
+*   Static Segments: +100 points (specific matches are preferred)
+*   Dynamic Segments: +50 points (generic matches are secondary)
+*   Length Bonus: +1 point per segment (deeper routes are preferred)
+
+Examples:
+
+```text
+/user/new            = 100 + 100 + 2 = 202  (Winner over /user/:id)
+/user/:id            = 100 +  50 + 2 = 152
+/user/:id/posts      = 100 +  50 + 100 + 3 = 253
+/:type/:id           =  50 +  50 + 2 = 102
+```
+
+---
+
+## 2.3 Route Module (`packages/fsrouter/src/route/mod.rs`)
+
+Checklist:
+* [ ] Add `RenderFn` enum
+* [ ] Update `RouteInfo` constructors:
+  * `new_static()` - Phase 1 routes
+  * `new_with_params()` - Phase 2 routes
+* [ ] Add lazy pattern initialisation with `OnceCell`
+* [ ] Update `find_route()` to use pattern matching
+* [ ] Add `find_route_exact()` for Phase 1 compatibility
+* [ ] Sort routes by priority
+
+Key function:
+
+```rust
+pub fn find_route(path: &str) -> Option<(&'static RouteInfo, HashMap<String, String>)> {
+    let mut routes: Vec<_> = get_routes().collect();
+    routes.sort_by(|a, b| b.priority().cmp(&a.priority()));
+    
+    for route in routes {
+        if let Some(params) = route.matches(path) {
+            return Some((route, params));
+        }
+    }
+    None
+}
+```
+
+---
+
+## 2.4 Proc Macro (`packages/fsrouter-macro/src/lib.rs`)
+
+Checklist:
+* [ ] Detect `:param` syntax in path
+* [ ] Extract component parameter names and types
+* [ ] Validate route params match component props
+* [ ] Generate appropriate wrapper:
+  * Static wrapper for no params
+  * Dynamic wrapper with `FromStr` parsing
+* [ ] Handle parse errors:
+  * Debug: panic with helpful message
+  * Release: return default value (triggers 404)
+* [ ] Add new validation errors
+
+Validation checks:
+```rust
+// Route param not in component
+#[route("/user/:id")]
+fn User(name: String) -> Element { ... }
+
+// Duplicate param names
+#[route("/user/:id/post/:id")]
+fn UserPost(id: String) -> Element { ... }
+
+// Empty param name
+#[route("/user/:")]
+fn User() -> Element { ... }
+```
+
+Generated code example:
+```rust
+// Input:
+#[route("/user/:id")]
+#[component]
+fn UserProfile(id: String) -> Element { ... }
+
+// Output:
+fn __render_UserProfile(params: HashMap<String, String>) -> Element {
+    let id = params.get("id")
+        .and_then(|s| s.parse::<String>().ok())
+        .unwrap_or_else(|| {
+            #[cfg(debug_assertions)]
+            panic!("Failed to parse 'id' as String");
+            
+            #[cfg(not(debug_assertions))]
+            String::new()
+        });
+
+    UserProfile { id }
+}
+
+inventory::submit! {
+    RouteInfo::new_with_params("/user/:id", "module::UserProfile", __render_UserProfile)
+}
+```
+
+---
+
+## 2.5 Router Components (`packages/fsrouter/src/router/components.rs`)
+
+Checklist:
+* [ ] Update `Outlet` to use new `find_route()` signature
+* [ ] Pass parameters to the render function
+* [ ] Handle parse failures (404 or fallback)
+
+Updated Outlet:
+```rust
+#[component]
+pub fn Outlet() -> Element {
+    let nav_ctx = use_context::<NavigationContext>();
+    let path = nav_ctx.current_route();
+    
+    match find_route(&path) {
+        Some((route, params)) => {
+            route.render(if params.is_empty() {
+                None
+            } else {
+                Some(params)
+            })
+        }
+        None => {
+            rsx! { div { "404 - Not Found: {path}" } }
+        }
+    }
+}
+```
+
+---
+
+## 2.6 Validation & Errors (`packages/fsrouter/src/route/validate.rs`, `packages/fsrouter/src/errors.rs`)
+
+Checklist:
+* [ ] Add new error variants:
+  * `DuplicateParam` - Same param name twice
+  * `EmptyParam` - `:` with no name
+  * `MismatchedParams` - Route param not in component
+* [ ] Validate parameter names
+* [ ] Check for conflicts
+
+New errors:
+```rust
+#[derive(Error, Debug, Clone)]
+pub enum RouterError {
+    // ... existing variants ...
+    
+    #[error("Duplicate parameter '{param}' in route '{path}'")]
+    DuplicateParam { path: String, param: String },
+    #[error("Empty parameter name in route '{path}'")]
+    EmptyParam { path: String },
+    #[error("Route parameter '{param}' in '{path}' not found in component props")]
+    MismatchedParam {
+        path: String,
+        param: String,
+        component: String,
+    },
+}
+```
+
+---
+
+## 2.7 Example App (`examples/basic`)
+
+Checklist:
+* [ ] Add routes with parameters:
+  ```rust
+  #[route("/user/:id")]
+  fn UserProfile(id: String) -> Element { ... }
+
+  #[route("/post/:id")]
+  fn Post(id: u32) -> Element { ... }
+
+  #[route("/user/:user_id/posts/:post_id")]
+  fn UserPost(user_id: String, post_id: u32) -> Element { ... }
+  ```
+* [ ] Add navigation to parameterised routes
+* [ ] Show parameter values in UI
+* [ ] Test parse failures
+
+---
+
+## 2.8 Testing
+
+### 2.8.1 Unit Tests
+
+Checklist:
+* [ ] Pattern parsing
+* [ ] Pattern matching
+* [ ] Priority calculation
+* [ ] Parameter extraction
+* [ ] Type conversion (`FromStr`)
+* [ ] Parse error handling
+
+### 2.8.2 Integration Tests
+
+Checklist:
+* [ ] Register mixed routes (static + dynamic)
+* [ ] Match URLs against patterns
+* [ ] Extract and parse parameters
+* [ ] Verify priority ordering
+* [ ] Test parse failures -> 404
+
+Example test:
+```rust
+#[test]
+fn test_dynamic_route_matching() {
+    let routes = vec![
+        RouteInfo::new_static("/about", "About", render_about),
+        RouteInfo::new_with_params("/user/:id", "User", render_user),
+    ];
+
+    // Static route matches
+    let (route, params) = find_route("/about").unwrap();
+    assert_eq!(route.path(), "/about");
+    assert!(params.is_empty());
+    
+    // Dynamic route matches
+    let (route, params) = find_route("/user/123").unwrap();
+    assert_eq!(route.path(), "/user/:id");
+    assert_eq!(params.get("id"), Some(&"123".to_string()));
+}
+```
+
+---
+
+## 2.9 Migration Path
+
+Phase 1 code:
+```rust
+#[route("/about")]
+#[component]
+fn About() -> Element {
+    rsx! { div { "About" } }
+}
+```
+
+Phase 2 code (new feature):
+```rust
+#[route("/user/:id")]
+#[component]
+fn UserProfile(id: String) -> Element {
+    rsx! { div { "User: {id}" } }
+}
+```
+
+Backward compatibility:
+* All Phase 1 routes continue working
+* No breaking changes
+* Can mix static and dynamic routes
+* `find_route_exact()` available for legacy code
+
+---
+
+## 2.10 Error Handling Strategy
+
+### Parse Failures
+
+Debug mode:
+```rust
+panic!("Failed to parse parameter 'id' as u32 from value 'abc'");
+```
+
+Release mode:
+```rust
+// Return default value, router shows 404
+eprintln!("Failed to parse 'id', showing 404");
+Default::default()
+```
+
+### Missing Parameters
+
+Should never happen (routing logic prevents this):
+```rust
+panic!("Route '{}' requires params but none provided. This is a router bug.");
+```
+
+---
+
+## 2.11 Performance Considerations
+
+1. Pattern caching - Use `OnceCell` for lazy initialisation
+2. Priority sorting - Sort once per navigation (cheap)
+3. Parameter parsing - Only parse matched route
+4. Zero overhead - Enum dispatch is optimised away
+
+---
+
+## 2.12 Timeline
+
+Week 1:
+* [ ] Pattern matching core
+* [ ] Route module updates
+* [ ] Basic tests
+* [ ] Macro updates
+* [ ] Component updates
+* [ ] Validation updates
+* [ ] Error types
+
+Week 2:
+* [ ] Example updates
+* [ ] Integration tests
+* [ ] Documentation
+* [ ] Polish & bug fixes
+
+Total: ~2 weeks for complete Phase 2 implementation
