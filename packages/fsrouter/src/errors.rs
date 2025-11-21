@@ -38,7 +38,7 @@ pub enum RouterError {
 /// Result type for router operations
 pub type Result<T> = std::result::Result<T, RouterError>;
 
-/// Errors that can occur during route parameter parsing (Phase 2)
+/// Errors that can occur during route parameter parsing
 #[derive(Error, Debug, Clone, PartialEq, Eq)]
 pub enum ParseError {
     /// A required parameter is missing from the URL
@@ -58,7 +58,7 @@ pub enum ParseError {
         route: String,
     },
 
-    /// Route requires parameters but none were provided (internal error)
+    /// Route requires parameters, but none were provided (internal error)
     #[error("Route '{route}' requires parameters but none were provided")]
     MissingParams { route: String },
 
