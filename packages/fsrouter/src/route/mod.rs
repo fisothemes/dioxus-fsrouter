@@ -3,6 +3,7 @@
 
 use dioxus::prelude::*;
 pub mod validate;
+pub mod pattern;
 
 pub use validate::{validate_routes, validate_routes_or_panic};
 
