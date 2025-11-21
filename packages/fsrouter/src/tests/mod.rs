@@ -1,4 +1,4 @@
-use crate::{find_route, get_routes, validate_routes, RouterError, ValidationErrors};
+use crate::{RouterError, ValidationErrors, find_route, get_routes, validate_routes};
 use dioxus::prelude::*;
 
 #[allow(dead_code)]
