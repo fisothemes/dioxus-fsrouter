@@ -2,6 +2,7 @@
 //! It allows for automatic route registration and validation, as well as dynamic route lookup.
 
 use dioxus::prelude::*;
+pub mod pattern;
 pub mod validate;
 
 pub use validate::{validate_routes, validate_routes_or_panic};

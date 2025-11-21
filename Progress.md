@@ -272,12 +272,12 @@ Files:
 * `packages/fsrouter/src/route/mod.rs` (update)
 
 Checklist:
-* [ ] Create `RoutePattern` struct
-* [ ] Create `Segment` enum
-* [ ] Implement `parse()`
-* [ ] Implement `matches()`
-* [ ] Implement `calculate_priority()`
-* [ ] Write comprehensive tests
+* [x] Create `RoutePattern` struct
+* [x] Create `Segment` enum
+* [x] Implement `parse()`
+* [x] Implement `matches()`
+* [x] Implement `calculate_priority()`
+* [x] Write comprehensive tests
 
 ### 2.2.1 Priority Algorithm
 
