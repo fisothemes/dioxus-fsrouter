@@ -9,6 +9,50 @@ pub enum Segment {
     Param(String),
 }
 
+/// Calculate priority for this pattern using position-weighted scoring
+///
+/// Rules:
+/// - Static segments: 10,000 points (base)
+/// - Dynamic segments: 1,000 points (base)
+/// - Position multiplier: Earlier segments have more weight
+/// - Length bonus: +1 per segment (tiebreaker)
+///
+/// Formula:
+/// ```text
+/// for segment at position i (0-indexed):
+///     position_weight = (total_segments - i)
+///     if Static: score += 10,000 × position_weight
+///     if Dynamic: score += 1,000 × position_weight
+/// score += total_segments
+/// ```
+///
+/// Examples:
+/// ```text
+/// /user/new      = 10,000×2 + 10,000×1 + 2 = 30,002
+/// /user/:id      = 10,000×2 + 1,000×1 + 2  = 21,002
+/// /:type/:id     = 1,000×2 + 1,000×1 + 2   = 3,002
+/// ```
+pub fn calculate_priority(segments: &[Segment]) -> usize {
+    let mut priority = 0usize;
+    let len = segments.len();
+
+    for (index, segment) in segments.iter().enumerate() {
+        let position_weight = len - index;
+
+        let base_score = match segment {
+            Segment::Static(_) => 10_000,
+            Segment::Param(_) => 1_000,
+        };
+
+        priority += base_score * position_weight;
+    }
+
+    // Length bonus for tiebreaking
+    priority += len;
+
+    priority
+}
+
 /// A parsed route pattern
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RoutePattern {
@@ -41,57 +85,13 @@ impl RoutePattern {
             })
             .collect::<Vec<_>>();
 
-        let priority = Self::calculate_priority(&segments);
+        let priority = calculate_priority(&segments);
 
         Self {
             raw: path.to_string(),
             segments,
             priority,
         }
-    }
-
-    /// Calculate priority for this pattern using position-weighted scoring
-    ///
-    /// Rules:
-    /// - Static segments: 10,000 points (base)
-    /// - Dynamic segments: 1,000 points (base)
-    /// - Position multiplier: Earlier segments have more weight
-    /// - Length bonus: +1 per segment (tiebreaker)
-    ///
-    /// Formula:
-    /// ```text
-    /// for segment at position i (0-indexed):
-    ///     position_weight = (total_segments - i)
-    ///     if Static: score += 10,000 × position_weight
-    ///     if Dynamic: score += 1,000 × position_weight
-    /// score += total_segments
-    /// ```
-    ///
-    /// Examples:
-    /// ```text
-    /// /user/new      = 10,000×2 + 10,000×1 + 2 = 30,002
-    /// /user/:id      = 10,000×2 + 1,000×1 + 2  = 21,002
-    /// /:type/:id     = 1,000×2 + 1,000×1 + 2   = 3,002
-    /// ```
-    pub fn calculate_priority(segments: &[Segment]) -> usize {
-        let mut priority = 0usize;
-        let len = segments.len();
-
-        for (index, segment) in segments.iter().enumerate() {
-            let position_weight = len - index;
-
-            let base_score = match segment {
-                Segment::Static(_) => 10_000,
-                Segment::Param(_) => 1_000,
-            };
-
-            priority += base_score * position_weight;
-        }
-
-        // Length bonus for tiebreaking
-        priority += len;
-
-        priority
     }
 
     /// Check if this pattern matches the given URL path
@@ -343,20 +343,20 @@ mod tests {
     #[test]
     fn test_priority_ordering() {
         let routes = vec![
-            RoutePattern::parse("/user/:id"),           // 21,002
-            RoutePattern::parse("/user/new"),           // 30,002
-            RoutePattern::parse("/user/:id/edit"),      // 32,003
-            RoutePattern::parse("/user/new/posts"),     // 40,003
+            RoutePattern::parse("/user/:id"),       // 21,002
+            RoutePattern::parse("/user/new"),       // 30,002
+            RoutePattern::parse("/user/:id/edit"),  // 32,003
+            RoutePattern::parse("/user/new/posts"), // 40,003
         ];
 
         let mut sorted = routes.clone();
         sorted.sort_by(|a, b| b.priority.cmp(&a.priority));
 
         // Check order (the highest priority first)
-        assert_eq!(sorted[0].raw, "/user/new/posts");   // 40,003
-        assert_eq!(sorted[1].raw, "/user/:id/edit");    // 32,003
-        assert_eq!(sorted[2].raw, "/user/new");         // 30,002
-        assert_eq!(sorted[3].raw, "/user/:id");         // 21,002
+        assert_eq!(sorted[0].raw, "/user/new/posts"); // 40,003
+        assert_eq!(sorted[1].raw, "/user/:id/edit"); // 32,003
+        assert_eq!(sorted[2].raw, "/user/new"); // 30,002
+        assert_eq!(sorted[3].raw, "/user/:id"); // 21,002
     }
 
     #[test]
