@@ -226,8 +226,8 @@ Route parameter support stays backward compatible while layering in new runtime 
 
 ```rust
 pub enum RenderFn {
-    Static(fn() -> Element),                                    // Phase 1
-    WithParams(fn(HashMap<String, String>) -> Result<Element, ParseError>)),  // Phase 2
+    Static(fn() -> Element),                                                 // Phase 1
+    WithParams(fn(HashMap<String, String>) -> Result<Element, ParseError>)), // Phase 2
 }
 ```
 
@@ -689,16 +689,23 @@ Backward compatibility:
 
 ### Parse Failures
 
+The wrapper function returns `Result<Element, ParseError>`.
+
 Debug mode:
 ```rust
-panic!("Failed to parse parameter 'id' as u32 from value 'abc'");
+// User may still choose to panic in debug to catch broken links immediately
+#[cfg(debug_assertions)]
+panic!("Failed to parse parameter 'id' as u32");
+
+// Or simply return the error to test the 404 page (Fallback/404 component)
+#[cfg(not(debug_assertions))]
+Err(ParseError::InvalidType { param: "id", ... })
 ```
 
 Release mode:
 ```rust
-// Return default value, router shows 404
-eprintln!("Failed to parse 'id', showing 404");
-Default::default()
+// Return the error, causing the Outlet to render the Fallback/404 component
+Err(ParseError::InvalidType { param: "id", ... })
 ```
 
 ### Missing Parameters
