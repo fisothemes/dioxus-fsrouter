@@ -69,8 +69,10 @@ impl RoutePattern {
     ///
     /// # Example
     /// ```
-    /// let pattern = RoutePattern::parse("/user/:id");
-    /// assert_eq!(pattern.segments.len(), 2);
+    ///  use dioxus_fsrouter::route::pattern::RoutePattern;
+    ///
+    ///  let pattern = RoutePattern::parse("/user/:id");
+    ///  assert_eq!(pattern.segments().len(), 2);
     ///
     pub fn parse(path: &str) -> Self {
         let segments = path
@@ -180,10 +182,12 @@ impl RoutePattern {
 ///
 /// # Examples
 /// ```
-/// assert_eq!(normalize_url("/about"), "/about");
-/// assert_eq!(normalize_url("/about/"), "/about");
-/// assert_eq!(normalize_url("/about?query=1"), "/about");
-/// assert_eq!(normalize_url("//about//"), "/about");
+///  use dioxus_fsrouter::route::pattern::normalize_url;
+///
+///  assert_eq!(normalize_url("/about"), "/about");
+///  assert_eq!(normalize_url("/about/"), "/about");
+///  assert_eq!(normalize_url("/about?query=1"), "/about");
+///  assert_eq!(normalize_url("//about//"), "/about");
 /// ```
 pub fn normalize_url(url: &str) -> String {
     // 1. Remove query string and fragment
@@ -210,11 +214,13 @@ pub fn normalize_url(url: &str) -> String {
 ///
 /// # Examples
 /// ```
-/// assert_eq!(decode_url_segment("hello"), Some("hello".to_string()));
-/// assert_eq!(decode_url_segment("hello%20world"), Some("hello world".to_string()));
-/// assert_eq!(decode_url_segment("100%25"), Some("100%".to_string()));
+///  use dioxus_fsrouter::route::pattern::decode_url_segment;
+///
+///  assert_eq!(decode_url_segment("hello"), Some("hello".to_string()));
+///  assert_eq!(decode_url_segment("hello%20world"), Some("hello world".to_string()));
+///  assert_eq!(decode_url_segment("100%25"), Some("100%".to_string()));
 /// ```
-fn decode_url_segment(segment: &str) -> Option<String> {
+pub fn decode_url_segment(segment: &str) -> Option<String> {
     urlencoding::decode(segment).ok().map(|s| s.into_owned())
 }
 
