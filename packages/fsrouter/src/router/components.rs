@@ -96,7 +96,7 @@ pub fn Router(children: Element) -> Element {
 }
 
 /// A functional component that serves as a placeholder to render the currently active route
-/// or a "404 - Not Found" message if the route is not recognized.
+/// or a "404 - Not Found" message if the route is not recognised.
 ///
 /// # Functionality
 /// - This component retrieves the current navigation context (`NavigationContext`)
@@ -131,7 +131,37 @@ pub fn Outlet() -> Element {
     let path = nav_ctx.current_route.read();
 
     match find_route(&path) {
-        Some(route) => route.render(),
+        Some((route, params)) => {
+            match route.render(Some(params)) {
+                Ok(element) => element,
+                Err(parse_error) => {
+                    // Parse error - show 404 or fallback
+                    #[cfg(debug_assertions)]
+                    {
+                        eprintln!("Parameter parse error: {}", parse_error);
+                    }
+
+                    #[cfg(not(debug_assertions))]
+                    {
+                        eprintln!("Parameter parse error (showing 404): {}", parse_error);
+                    }
+
+                    rsx! {
+                        div {
+                            h1 { "404 - Not Found" }
+                            p { "No route found for: {path}" }
+                        }
+
+                        if cfg!(debug_assertions) {
+                            p {
+                                strong { "Debug info:" }
+                                "{parse_error}"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         None => rsx! {
             div {
                 h1 { "404 - Not Found" }

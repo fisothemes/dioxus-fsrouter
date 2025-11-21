@@ -137,7 +137,7 @@ fn route_impl(attr: TokenStream, item: TokenStream) -> syn::Result<TokenStream> 
             ::dioxus_fsrouter::RouteInfo::new(
                 #path_str,
                 concat!(module_path!(), "::", stringify!(#func_ident)),
-                #render_fn_name
+                ::dioxus_fsrouter::RenderFn::Static(#render_fn_name)
             )
         }
     }

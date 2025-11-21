@@ -13,13 +13,13 @@ pub use dioxus_fsrouter_macro as macros;
 pub use inventory;
 
 pub use errors::{ParseError, RouterError, ValidationErrors};
-pub use route::{RouteInfo, find_route, get_routes, validate_routes};
+pub use route::{RouteInfo, find_route, get_routes, validate_routes, RenderFn};
 pub use router::{Link, Navigation, Outlet, Router, use_navigation};
 
 pub mod prelude {
     pub use crate::macros::route;
     pub use crate::{
-        Link, Navigation, Outlet, ParseError, Router, RouterError, ValidationErrors, get_routes,
+        Link, Navigation, Outlet, ParseError, Router, RenderFn, RouterError, ValidationErrors, get_routes,
         route, route::validate_routes_or_panic, use_navigation, validate_routes,
     };
     #[doc(hidden)]

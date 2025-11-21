@@ -37,7 +37,7 @@ fn validation_errors_basic_behaviour() {
 
 #[test]
 fn inventory_registers_routes_from_macro() {
-    let paths: Vec<_> = get_routes().map(|route| route.path()).collect();
+    let paths: Vec<_> = get_routes().iter().map(|route| route.path()).collect();
 
     assert!(
         paths.iter().any(|p| *p == "/__test_home"),
@@ -54,13 +54,13 @@ fn inventory_registers_routes_from_macro() {
 
 #[test]
 fn find_route_returns_renderable_components() {
-    let home = find_route("/__test_home").expect("route /__test_home should exist");
+    let (home, params) = find_route("/__test_home").expect("route /__test_home should exist");
     assert!(home.component_name().contains("TestHome"));
-    assert!(home.render().is_ok(), "render should return an Element");
+    assert!(home.render(Some(params)).is_ok(), "render should return an Element");
 
-    let about = find_route("/__test_about").expect("route /__test_about should exist");
+    let (about, params) = find_route("/__test_about").expect("route /__test_about should exist");
     assert!(about.component_name().contains("TestAbout"));
-    assert!(about.render().is_ok(), "render should return an Element");
+    assert!(about.render(Some(params)).is_ok(), "render should return an Element");
 }
 
 #[test]
