@@ -111,10 +111,11 @@ impl<'a> RouteInfo<'a> {
 /// Routes are always returned in priority order (highest first).
 /// Initialisation happens automatically on the first call.
 pub fn get_routes() -> &'static [&'static RouteInfo<'static>] {
-    static SORTED_ROUTES: OnceLock<Vec<&'static RouteInfo>> = OnceLock::new();
+    static SORTED_ROUTES: OnceLock<Vec<&'static RouteInfo<'static>>> = OnceLock::new();
 
     SORTED_ROUTES.get_or_init(|| {
-        let mut routes = inventory::iter::<RouteInfo>().collect::<Vec<&'static RouteInfo>>();
+        let mut routes =
+            inventory::iter::<RouteInfo<'static>>().collect::<Vec<&'static RouteInfo>>();
 
         routes.sort_by(|a, b| b.priority().cmp(&a.priority()));
 
