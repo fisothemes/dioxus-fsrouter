@@ -9,50 +9,6 @@ pub enum Segment {
     Param(String),
 }
 
-/// Calculate priority for this pattern using position-weighted scoring
-///
-/// Rules:
-/// - Static segments: 10,000 points (base)
-/// - Dynamic segments: 1,000 points (base)
-/// - Position multiplier: Earlier segments have more weight
-/// - Length bonus: +1 per segment (tiebreaker)
-///
-/// Formula:
-/// ```text
-/// for segment at position i (0-indexed):
-///     position_weight = (total_segments - i)
-///     if Static: score += 10,000 × position_weight
-///     if Dynamic: score += 1,000 × position_weight
-/// score += total_segments
-/// ```
-///
-/// Examples:
-/// ```text
-/// /user/new      = 10,000×2 + 10,000×1 + 2 = 30,002
-/// /user/:id      = 10,000×2 + 1,000×1 + 2  = 21,002
-/// /:type/:id     = 1,000×2 + 1,000×1 + 2   = 3,002
-/// ```
-pub fn calculate_priority(segments: &[Segment]) -> usize {
-    let mut priority = 0usize;
-    let len = segments.len();
-
-    for (index, segment) in segments.iter().enumerate() {
-        let position_weight = len - index;
-
-        let base_score = match segment {
-            Segment::Static(_) => 10_000,
-            Segment::Param(_) => 1_000,
-        };
-
-        priority += base_score * position_weight;
-    }
-
-    // Length bonus for tiebreaking
-    priority += len;
-
-    priority
-}
-
 /// A parsed route pattern
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RoutePattern {
@@ -170,6 +126,50 @@ impl RoutePattern {
     pub fn is_static(&self) -> bool {
         !self.has_params()
     }
+}
+
+/// Calculate priority for this pattern using position-weighted scoring
+///
+/// Rules:
+/// - Static segments: 10,000 points (base)
+/// - Dynamic segments: 1,000 points (base)
+/// - Position multiplier: Earlier segments have more weight
+/// - Length bonus: +1 per segment (tiebreaker)
+///
+/// Formula:
+/// ```text
+/// for segment at position i (0-indexed):
+///     position_weight = (total_segments - i)
+///     if Static: score += 10,000 × position_weight
+///     if Dynamic: score += 1,000 × position_weight
+/// score += total_segments
+/// ```
+///
+/// Examples:
+/// ```text
+/// /user/new      = 10,000×2 + 10,000×1 + 2 = 30,002
+/// /user/:id      = 10,000×2 + 1,000×1 + 2  = 21,002
+/// /:type/:id     = 1,000×2 + 1,000×1 + 2   = 3,002
+/// ```
+pub fn calculate_priority(segments: &[Segment]) -> usize {
+    let mut priority = 0usize;
+    let len = segments.len();
+
+    for (index, segment) in segments.iter().enumerate() {
+        let position_weight = len - index;
+
+        let base_score = match segment {
+            Segment::Static(_) => 10_000,
+            Segment::Param(_) => 1_000,
+        };
+
+        priority += base_score * position_weight;
+    }
+
+    // Length bonus for tiebreaking
+    priority += len;
+
+    priority
 }
 
 /// Normalise a URL path for consistent matching
