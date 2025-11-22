@@ -56,11 +56,17 @@ fn inventory_registers_routes_from_macro() {
 fn find_route_returns_renderable_components() {
     let (home, params) = find_route("/__test_home").expect("route /__test_home should exist");
     assert!(home.component_name().contains("TestHome"));
-    assert!(home.render(Some(params)).is_ok(), "render should return an Element");
+    assert!(
+        home.render(Some(params)).is_ok(),
+        "render should return an Element"
+    );
 
     let (about, params) = find_route("/__test_about").expect("route /__test_about should exist");
     assert!(about.component_name().contains("TestAbout"));
-    assert!(about.render(Some(params)).is_ok(), "render should return an Element");
+    assert!(
+        about.render(Some(params)).is_ok(),
+        "render should return an Element"
+    );
 }
 
 #[test]
