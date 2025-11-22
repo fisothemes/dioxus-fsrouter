@@ -19,18 +19,21 @@ A simple, attribute-based router for [Dioxus](https://dioxuslabs.com/) applicati
 ### Route Definition
 
 ```rust
+// ✅ Implemented: Exact Path
 #[route("/")]
 #[component]
 fn Home() -> Element {
     rsx! { div { "Home" } }
 }
 
+// 🚧 Planned: Route Parameters (Phase 2)
 #[route("/user/:id")]
 #[component]
 fn UserProfile(id: String) -> Element {
     rsx! { div { "User: {id}" } }
 }
 
+// 🚧 Planned: Aliases
 #[route("/post/:slug")]
 #[alias("/article/:slug")]
 #[alias("/blog/:slug")]
@@ -54,6 +57,7 @@ fn Post(slug: String) -> Element {
     }
 }
 
+// 🚧 Planned: Groups
 #[route_group("/admin")]
 mod admin {
     #[route("/users")] // Becomes "/admin/users"
@@ -77,12 +81,12 @@ mod admin {
 ```
 
 **Capabilities:**
-- Primary route via `#[route("/path")]`
-- Multiple aliases via `#[alias("/path")]`
-- Grouped routes via `#[route_group("/prefix")]` on modules
-- Route parameters (`:param`) automatically parsed and passed as component props
-- Component props must match route parameters (compile-time checked)
-- Access route metadata via `use_route_context()`
+* [x] Primary route via `#[route("/path")]`
+* [ ] Route parameters (`:param`) automatically parsed and passed as component props
+* [ ] Component props must match route parameters (compile-time checked)
+* [ ] Multiple aliases via `#[alias("/path")]`
+* [ ] Access route metadata via `use_route_context()`
+* [ ] Grouped routes via `#[route_group("/prefix")]` on modules
 
 ### Router Setup
 
@@ -99,10 +103,10 @@ fn App() -> Element {
 ```
 
 **Capabilities:**
-- `Router` component that manages application routing logic
-- `Outlet` component renders matched route
-- Non-route components (Navbar, Footer) render normally
-- Routes auto-discovered from global inventory
+* [x] `Router` component that manages application routing logic
+* [x] `Outlet` component renders matched route
+* [x] Non-route components (Navbar, Footer) render normally
+* [x] Routes auto-discovered from global inventory
 
 ### Navigation
 
@@ -110,8 +114,11 @@ fn App() -> Element {
 fn Navbar() -> Element {
     rsx! {
         nav {
-            // Type-safe links to components
-            LinkTo::<Home> { "Home" }
+            // ✅ Implemented: String-based Link
+            Link { to: "/".to_string(), "Home" }
+            Link { to: "/about".to_string(), "About" }
+            
+            // 🚧 Planned: Type-safe LinkTo
             LinkTo::<UserProfile> { id: "alice", "Alice's Profile" }
             LinkTo::<Post> { slug: "hello-world", "Read Post" }
             LinkTo::<admin::Users> { "Admin users" }
@@ -120,32 +127,29 @@ fn Navbar() -> Element {
 }
 
 fn SomeComponent() -> Element {
-    let nav = use_navigation();
-    
+    // ✅ Implemented: Navigation Hook
+    let mut nav = use_navigation();
+
     rsx! {
         button {
-            onclick: move |_| nav.push::<UserProfile>(UserProfileProps { 
-                id: "bob".to_string() 
-            }),
-            "Go to Bob's Profile"
-        }
-        button {
-            onclick: move |_| nav.go_back(),
-            "Back"
+            onclick: move |_| nav.push("/about"),
+            "Go to About"
         }
     }
 }
 ```
 
 **Capabilities:**
-- `LinkTo::<Component>` for declarative navigation
-- `use_navigation()` hook for programmatic navigation
-- Type-safe: Can't navigate to non-existent routes
-- Props validated at compile time
+* [x] `Link` for string-based navigation
+* [ ] `LinkTo::<Component>` for declarative navigation
+* [x] `use_navigation()` hook for programmatic navigation
+* [ ] Type-safe: Can't navigate to non-existent routes
+* [ ] Props validated at compile time
 
 ### Route Parameters
 
 ```rust
+// 🚧 Planned Syntax
 #[route("/user/:id/posts/:post_id")]
 #[component]
 fn UserPost(id: String, post_id: u32) -> Element {
@@ -154,7 +158,7 @@ fn UserPost(id: String, post_id: u32) -> Element {
     rsx! { 
         div { 
             "User {id}, Post {post_id}"
-            // Access params from context too
+            // 🚧 Planned: Access params from context too
             p { "ID from context: {ctx.params.get(\"id\").unwrap()}" }
         }
     }
@@ -168,11 +172,11 @@ LinkTo::<UserPost> { id: "alice", post_id: 42, "View Post" }
 ```
 
 **Capabilities:**
-- Parameters defined with `:name` syntax
-- Automatically parsed from URL to component props
-- Type conversion (String, u32, i32, etc.)
-- Parse failures result in 404 or fallback route
-- Access raw params via `use_route_context().params`
+* [ ] Parameters defined with `:name` syntax
+* [ ] Automatically parsed from URL to component props
+* [ ] Type conversion (String, u32, i32, etc.)
+* [ ] Parse failures result in 404 or fallback route
+* [ ] Access raw params via `use_route_context().params`
 
 ### Route Context
 
@@ -180,6 +184,7 @@ LinkTo::<UserPost> { id: "alice", post_id: 42, "View Post" }
 #[route("/dashboard")]
 #[component]
 fn Dashboard() -> Element {
+    // 🚧 Planned: Access metadata like ctx.url, ctx.pattern, etc.
     let ctx = use_route_context();
     
     // Log analytics
@@ -198,11 +203,11 @@ fn Dashboard() -> Element {
 ```
 
 **RouteContext Fields:**
-- `url: String` - The actual URL path (e.g., "/article/hello-world")
-- `pattern: &'static str` - The pattern that matched (e.g., "/article/:slug")
-- `is_alias: bool` - Whether matched via an alias
-- `component_name: &'static str` - Name of the matched component
-- `params: HashMap<String, String>` - Extracted route parameters
+* [ ] `url: String` - The actual URL path (e.g., "/article/hello-world")
+* [ ] `pattern: &'static str` - The pattern that matched (e.g., "/article/:slug")
+* [ ] `is_alias: bool` - Whether matched via an alias
+* [ ] `component_name: &'static str` - Name of the matched component
+* [ ] `params: HashMap<String, String>` - Extracted route parameters
 
 **Use Cases:**
 - Canonical URL redirects
@@ -213,7 +218,7 @@ fn Dashboard() -> Element {
 ### Query Parameters
 
 ```rust
-// Props-based query parameters
+// 🚧 Planned: Props-based query parameters
 #[route("/search")]
 #[component]
 fn Search(q: String, page: Option<u32>) -> Element {
@@ -238,14 +243,15 @@ fn SearchAlt() -> Element {
 ```
 
 **Capabilities:**
-- Query parameters are parsed from the URL
-- Can be accessed via `use_query()` hook or props
-- Type conversion (String, u32, i32, etc.)
-- Parse failures result in 404 or fallback route
+* [ ] Query parameters are parsed from the URL
+* [ ] Can be accessed via `use_query()` hook or props
+* [ ] Type conversion (String, u32, i32, etc.)
+* [ ] Parse failures result in 404 or fallback route
 
 ### Fallback Routes (404 Handling)
 
 ```rust
+// 🚧 Planned: Fallback routes
 #[fallback]
 #[component]
 fn NotFound() -> Element {
@@ -279,25 +285,24 @@ fn NotFound() -> Element {
 ```
 
 **Capabilities:**
-- `#[fallback]` marks a component as the 404 handler
-- Only one fallback allowed per application (compile-time enforced)
-- Has lowest matching priority
-- Access attempted URL via `use_route_context()`
-- Cannot be combined with `#[route]` or `#[alias]`
+* [ ] `#[fallback]` marks a component as the 404 handler
+* [ ] Only one fallback allowed per application (compile-time enforced)
+* [ ] Has lowest matching priority
+* [ ] Access attempted URL via `use_route_context()`
+* [ ] Cannot be combined with `#[route]` or `#[alias]`
 
 ### Compile-Time Validation
 
 #### URL Validation
 ```rust
-#[route("/valid/path")]        // ✅ Valid
-#[route("/user/:id")]          // ✅ Valid
-#[route("/")]                  // ✅ Valid
+#[route("/valid/path")]        // ✅ Valid | ✅ Implemented
+#[route("/user/:id")]          // ✅ Valid | 🚧 Planned
+#[route("/")]                  // ✅ Valid | ✅ Implemented
 
-#[route("no-slash")]           // ❌ Error: Must start with '/'
-#[route("/double//slash")]     // ❌ Error: No double slashes
-#[route("/user/:")]            // ❌ Error: Empty parameter name
-#[route("/user/:id/:id")]      // ❌ Error: Duplicate parameter ':id'
-#[route("/trailing/")]         // ❌ Warning: Trailing slash (optional)
+#[route("no-slash")]           // ❌ Error: Must start with '/'       | ✅ Implemented
+#[route("/double//slash")]     // ❌ Error: No double slashes         | ✅ Implemented
+#[route("/user/:")]            // ❌ Error: Empty parameter name      | 🚧 Planned
+#[route("/user/:id/:id")]      // ❌ Error: Duplicate parameter ':id' | 🚧 Planned
 ```
 
 #### Fallback Validation
@@ -336,30 +341,40 @@ fn Post(id: u32) -> Element { ... }
 
 ### 8. Route Priority
 
-Routes are matched in order of specificity:
+The router uses a **Position-Weighted Scoring** algorithm to determine which route to match. This ensures deterministic matching where:
 
-1. **Exact matches**: `/about` (priority: 1000)
-2. **Parameterized routes**: `/user/:id` (priority: 500)
-3. **Fallback**: `#[fallback]` (priority: -1000)
+1.  **Static segments beat parameters** (at the same position).
+2.  **Earlier segments matter more** (prefix precedence).
+3.  **Deeper routes are preferred** (length tie-breaker).
 
-Within each tier, longer/more specific paths have higher priority:
-- `/user/:id/posts/:post_id` (priority: 502) > `/user/:id` (priority: 501)
-- `/user/new` (priority: 1000) > `/user/:id` (priority: 500)
+#### Scoring Rules
+* **Static Segments**: 10,000 points
+* **Parameter Segments**: 1,000 points
+* **Multiplier**: Score × (Total Segments - Index)
+* **Bonus**: +1 point per segment
 
-```rust
-#[route("/user/new")]          // Priority: 1000 (exact)
-fn NewUser() -> Element { ... }
+#### Examples
 
-#[route("/user/:id")]          // Priority: 500 (parameterized)
-fn UserProfile(id: String) -> Element { ... }
+**Case 1: Specificity (`/user/new` vs `/user/:id`)**
 
-#[fallback]                    // Priority: -1000 (fallback)
-fn NotFound() -> Element { ... }
+* **`/user/new`**
+    * `user` (Static × 2): 20,000
+    * `new` (Static × 1): 10,000
+    * Length: +2
+    * **Total: 30,002** (Winner) ✅
 
-// /user/new → matches NewUser (exact match)
-// /user/123 → matches UserProfile (parameterized)
-// /user/123/invalid → matches NotFound (fallback)
-```
+* **`/user/:id`**
+    * `user` (Static × 2): 20,000
+    * `:id` (Param × 1): 1,000
+    * Length: +2
+    * **Total: 21,002**
+
+**Case 2: Root vs Deep**
+
+* **`/about`**
+    * `about` (Static × 1): 10,000
+    * Length: +1
+    * **Total: 10,001**
 
 ## Project Progress
 

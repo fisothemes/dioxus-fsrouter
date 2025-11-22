@@ -225,9 +225,12 @@ Route parameter support stays backward compatible while layering in new runtime 
 ### 2.1.1 Render Function Variants
 
 ```rust
+pub type StaticRouteRenderFn = fn() -> Element;
+pub type DynamicRouteRenderFn = fn(HashMap<String, String>) -> ParseResult<Element>;
+
 pub enum RenderFn {
-    Static(fn() -> Element),                                                 // Phase 1
-    WithParams(fn(HashMap<String, String>) -> Result<Element, ParseError>)), // Phase 2
+    Static(StaticRouteRenderFn),      // Phase 1
+    WithParams(DynamicRouteRenderFn), // Phase 2
 }
 ```
 
@@ -240,10 +243,10 @@ Benefits:
 ### 2.1.2 RouteInfo Fields
 
 ```rust
-pub struct RouteInfo {
-    path: &'static str,
-    pattern: OnceCell<RoutePattern>,  // Lazy-initialised
-    component_name: &'static str,
+pub struct RouteInfo<'a> {
+    path: &'a str,
+    pattern: &'a OnceLock<RoutePattern>,  // Lazy-initialised
+    component_name: &'a str,
     render_fn: RenderFn,              // Now an enum
 }
 ```
@@ -254,7 +257,7 @@ pub struct RouteInfo {
 pub struct RoutePattern {
     raw: String,
     segments: Vec<Segment>,
-    priority: i32,
+    priority: usize,
 }
 
 pub enum Segment {
@@ -408,25 +411,25 @@ Position-based weighting ensures that static segments **early** in the path are 
 #### Implementation
 
 ```rust
-fn calculate_priority(segments: &[Segment]) -> i32 {
-    let mut priority = 0;
-    let len = segments.len();
-    
-    for (index, segment) in segments.iter().enumerate() {
-        let position_weight = (len - index) as i32;
-        
-        let base_score = match segment {
-            Segment::Static(_) => 10_000,
-            Segment::Param(_) => 1_000,
-        };
-        
-        priority += base_score * position_weight;
-    }
-    
-    // Length bonus for tiebreaking
-    priority += len as i32;
-    
-    priority
+pub fn calculate_priority(segments: &[Segment]) -> usize {
+  let mut priority = 0usize;
+  let len = segments.len();
+
+  for (index, segment) in segments.iter().enumerate() {
+    let position_weight = len - index;
+
+    let base_score = match segment {
+      Segment::Static(_) => 10_000,
+      Segment::Param(_) => 1_000,
+    };
+
+    priority += base_score * position_weight;
+  }
+
+  // Length bonus for tiebreaking
+  priority += len;
+
+  priority
 }
 ```
 
@@ -447,28 +450,24 @@ This creates a natural hierarchy: specificity → position → depth.
 ## 2.3 Route Module (`packages/fsrouter/src/route/mod.rs`)
 
 Checklist:
-* [ ] Add `RenderFn` enum
-* [ ] Update `RouteInfo` constructors:
-  * `new_static()` - Phase 1 routes
-  * `new_with_params()` - Phase 2 routes
-* [ ] Add lazy pattern initialisation with `OnceCell`
-* [ ] Update `find_route()` to use pattern matching
-* [ ] Add `find_route_exact()` for Phase 1 compatibility
-* [ ] Sort routes by priority
+* [x] Add `RenderFn` enum
+* [x] Update `RouteInfo` constructor:
+  * [x] generic `new()` accepting `RenderFn` and `&OnceLock`
+* [x] Add lazy pattern initialisation with `OnceLock` (std)
+* [x] Update `find_route()` to use pattern matching
+* [x] Sort routes by priority
 
 Key function:
 
 ```rust
-pub fn find_route(path: &str) -> Option<(&'static RouteInfo, HashMap<String, String>)> {
-    let mut routes: Vec<_> = get_routes().collect();
-    routes.sort_by(|a, b| b.priority().cmp(&a.priority()));
-    
-    for route in routes {
-        if let Some(params) = route.matches(path) {
-            return Some((route, params));
-        }
+pub fn find_route(path: &str) -> Option<(&'static RouteInfo<'static>, HashMap<String, String>)> {
+  // Routes are already sorted by priority in get_routes()
+  for route in get_routes() {
+    if let Some(params) = route.matches(path) {
+      return Some((route, params));
     }
-    None
+  }
+  None
 }
 ```
 
@@ -481,11 +480,11 @@ Checklist:
 * [ ] Extract component parameter names and types
 * [ ] Validate route params match component props
 * [ ] Generate appropriate wrapper:
-  * Static wrapper for no params
-  * Dynamic wrapper with `FromStr` parsing
+  * [ ] Static wrapper for no params
+  * [ ] Dynamic wrapper with `FromStr` parsing
 * [ ] Handle parse errors:
-  * Debug: panic with a helpful message
-  * Release: return default value (triggers 404)
+  * [ ] Debug: panic with a helpful message
+  * [ ] Release: return default value (triggers 404)
 * [ ] Add new validation errors
 
 Validation checks:
@@ -512,20 +511,25 @@ fn UserProfile(id: String) -> Element { ... }
 
 // Output:
 fn __render_UserProfile(params: HashMap<String, String>) -> Result<Element, ParseError> {
-    let id = params.get("id")
-        .ok_or(ParseError::Missing("id"))?
-        .parse::<u32>()
-        .map_err(|_| ParseError::InvalidType { 
-            param: "id",
-            expected: "u32",
-            value: params.get("id").unwrap().clone(),
-        })?;
-  
-    Ok(UserProfile { id })
+  let id = params.get("id")
+          .ok_or(ParseError::missing("id", "/user/:id"))?
+          .parse::<String>() // Type comes from fn signature
+          .map_err(|_| ParseError::invalid_type("id", "String", ...))?;
+
+  Ok(UserProfile(UserProfileProps { id }))
 }
 
+// Static generation
+#[allow(non_upper_case_globals)]
+static __PATTERN_UserProfile: OnceLock<RoutePattern> = OnceLock::new();
+
 inventory::submit! {
-    RouteInfo::new_with_params("/user/:id", "module::UserProfile", __render_UserProfile)
+    RouteInfo::new(
+        "/user/:id",
+        &__PATTERN_UserProfile,
+        "module::UserProfile",
+        RenderFn::WithParams(__render_UserProfile)
+    )
 }
 ```
 
@@ -618,9 +622,9 @@ Checklist:
 ### 2.8.1 Unit Tests
 
 Checklist:
-* [ ] Pattern parsing
-* [ ] Pattern matching
-* [ ] Priority calculation
+* [x] Pattern parsing
+* [x] Pattern matching
+* [x] Priority calculation
 * [ ] Parameter extraction
 * [ ] Type conversion (`FromStr`)
 * [ ] Parse error handling
@@ -657,35 +661,7 @@ fn test_dynamic_route_matching() {
 
 ---
 
-## 2.9 Migration Path
-
-Phase 1 code:
-```rust
-#[route("/about")]
-#[component]
-fn About() -> Element {
-    rsx! { div { "About" } }
-}
-```
-
-Phase 2 code (new feature):
-```rust
-#[route("/user/:id")]
-#[component]
-fn UserProfile(id: String) -> Element {
-    rsx! { div { "User: {id}" } }
-}
-```
-
-Backward compatibility:
-* All Phase 1 routes continue working
-* No breaking changes
-* Can mix static and dynamic routes
-* `find_route_exact()` available for legacy code
-
----
-
-## 2.10 Error Handling Strategy
+## 2.9 Error Handling Strategy
 
 ### Parse Failures
 
@@ -717,7 +693,7 @@ panic!("Route '{}' requires params but none provided. This is a router bug.");
 
 ---
 
-## 2.11 Performance Considerations
+## 2.10 Performance Considerations
 
 1. Pattern caching - Use `OnceCell` for lazy initialisation
 2. Priority sorting - Sort once per navigation (cheap)
@@ -726,10 +702,10 @@ panic!("Route '{}' requires params but none provided. This is a router bug.");
 
 ---
 
-## 2.12 Timeline
+## 2.11 Timeline
 
 Week 1:
-* [ ] Pattern matching core
+* [x] Pattern matching core
 * [ ] Route module updates
 * [ ] Basic tests
 * [ ] Macro updates

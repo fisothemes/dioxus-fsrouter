@@ -120,6 +120,7 @@ fn route_impl(attr: TokenStream, item: TokenStream) -> syn::Result<TokenStream> 
 
     let func_ident = &func.sig.ident;
     let render_fn_name = format_ident!("__render_{}", func_name);
+    let pattern_static_name = format_ident!("__PATTERN_{}", func_name);
 
     let item: proc_macro2::TokenStream = item.into();
 
@@ -132,12 +133,19 @@ fn route_impl(attr: TokenStream, item: TokenStream) -> syn::Result<TokenStream> 
             #func_ident()
         }
 
+        // Generate named static for the pattern lock
+        // This avoids the "borrow of interior mutable temporary" error
+        #[allow(non_upper_case_globals)]
+        static #pattern_static_name: ::std::sync::OnceLock<::dioxus_fsrouter::route::RoutePattern>
+            = ::std::sync::OnceLock::new();
+
         // Submit this route to the global inventory
         ::dioxus_fsrouter::inventory::submit! {
             ::dioxus_fsrouter::RouteInfo::new(
                 #path_str,
+                &#pattern_static_name,
                 concat!(module_path!(), "::", stringify!(#func_ident)),
-                #render_fn_name
+                ::dioxus_fsrouter::RenderFn::Static(#render_fn_name)
             )
         }
     }
