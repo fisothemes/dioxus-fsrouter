@@ -86,9 +86,7 @@ pub fn Router(children: Element) -> Element {
     }
 
     // Provide navigation context
-    use_context_provider(|| NavigationContext {
-        current_route: current_route.clone(),
-    });
+    use_context_provider(|| NavigationContext { current_route });
 
     rsx! {
         {children}
