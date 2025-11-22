@@ -11,7 +11,7 @@ use dioxus::prelude::*;
 /// - `children`: The child elements to render within the `Router` component. This acts as a
 ///   placeholder for the application content that will respond to route changes.
 ///
-/// # Behavior
+/// # Behaviour
 ///
 /// 1. **Initial Route Setup**:
 ///    - The `Router` retrieves the initial path from the browser's `window.location`.
@@ -28,7 +28,7 @@ use dioxus::prelude::*;
 ///    - The `Router` establishes a `NavigationContext` to share the `current_route` signal with child components, enabling nested components to react to or modify the navigation state.
 ///
 /// 5. **Rendering**:
-///    - The child elements (`children`) provided to the `Router` are rendered within the component, allowing them to access and utilize the routing context.
+///    - The child elements (`children`) provided to the `Router` are rendered within the component, allowing them to access and use the routing context.
 ///
 /// # Notes
 ///
@@ -161,7 +161,7 @@ pub fn Outlet() -> Element {
                     }
                 }
             }
-        },
+        }
         None => rsx! {
             div {
                 h1 { "404 - Not Found" }
@@ -172,17 +172,17 @@ pub fn Outlet() -> Element {
 }
 
 /// A component that creates a hyperlink (`<a>` element) which allows programmatic navigation
-/// while preventing the default browser navigation behavior. This component is typically used for client-side
+/// while preventing the default browser navigation behaviour. This component is typically used for client-side
 /// routing in web applications.
 ///
 /// # Parameters
 /// - `to`: A `String` specifying the target URL or route to navigate to when the hyperlink is clicked.
-/// - `children`: The `Element` representing the content of the link (e.g., text or nested elements).
+/// - `children`: The `Element` representing the content of the link (e.g. text or nested elements).
 ///
-/// # Behavior
+/// # Behaviour
 /// The component renders an anchor (`<a>`) element with the `href` attribute pointing to the given `to` route.
 /// When the link is clicked, it:
-/// 1. Prevents the default browser behavior for `<a>` tags (i.e., no page reload occurs).
+/// 1. Prevents the default browser behaviour for `<a>` tags (i.e. no page reload occurs).
 /// 2. Uses a navigation hook `use_navigation()` to programmatically navigate to the specified `to` route.
 ///
 /// This component allows smooth client-side navigation in applications with frameworks that support hooks and
