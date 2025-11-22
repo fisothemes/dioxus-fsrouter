@@ -117,7 +117,7 @@ pub fn get_routes() -> &'static [&'static RouteInfo<'static>] {
         let mut routes =
             inventory::iter::<RouteInfo<'static>>().collect::<Vec<&'static RouteInfo>>();
 
-        routes.sort_by(|a, b| b.priority().cmp(&a.priority()));
+        routes.sort_by_key(|b| std::cmp::Reverse(b.priority()));
 
         routes
     })
