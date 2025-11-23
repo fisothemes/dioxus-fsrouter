@@ -548,6 +548,23 @@ Checklist:
   * `assert_routes_valid!()` - Panics if registry has conflicts
   * `assert_route_matches!(path, component)` - Verifies routing logic
 
+```rust
+#[test]
+fn test_my_routes() {
+    // Fails if no route matches or if it matches the wrong component
+    assert_route_matches!("/user/123", UserProfile);
+    
+    // Fails if parameters don't parse correctly
+    assert_route_matches!("/user/123", UserProfile, { id: "123" });
+}
+
+#[test]
+fn test_registry_sanity() {
+  // Fails if any duplicates or ambiguities exist in the whole app
+  assert_routes_valid!();
+}
+```
+
 ---
 
 ## 2.7 Example App (`examples/basic`)
