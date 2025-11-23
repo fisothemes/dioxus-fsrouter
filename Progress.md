@@ -538,32 +538,15 @@ pub fn Outlet() -> Element {
 
 ## 2.6 Validation & Errors (`packages/fsrouter/src/route/validate.rs`, `packages/fsrouter/src/errors.rs`)
 
-Checklist:
-* [ ] Add new error variants:
-  * `DuplicateParam` - Same param name twice
-  * `EmptyParam` - `:` with no name
-  * `MismatchedParams` - Route param not in component
-* [ ] Validate parameter names
-* [ ] Check for conflicts
+Internal route validation (duplicates, mismatches) is handled by the macro at compile time.
 
-New errors:
-```rust
-#[derive(Error, Debug, Clone)]
-pub enum RouterError {
-    // ... existing variants ...
-    
-    #[error("Duplicate parameter '{param}' in route '{path}'")]
-    DuplicateParam { path: String, param: String },
-    #[error("Empty parameter name in route '{path}'")]
-    EmptyParam { path: String },
-    #[error("Route parameter '{param}' in '{path}' not found in component props")]
-    MismatchedParam {
-        path: String,
-        param: String,
-        component: String,
-    },
-}
-```
+Checklist:
+* [ ] Detect ambiguous routes (Runtime conflict):
+  * Example: `/user/:id` vs `/user/:name` (Same priority, same structure)
+  * Action: Return `RouterError::AmbiguousRoutes`
+* [x] ~DuplicateParam~ (Handled by Macro)
+* [x] ~EmptyParam~ (Handled by Macro)
+* [x] ~MismatchedParams~ (Handled by Macro)
 
 ---
 
