@@ -476,16 +476,16 @@ pub fn find_route(path: &str) -> Option<(&'static RouteInfo<'static>, HashMap<St
 ## 2.4 Proc Macro (`packages/fsrouter-macro/src/lib.rs`)
 
 Checklist:
-* [ ] Detect `:param` syntax in a path
-* [ ] Extract component parameter names and types
-* [ ] Validate route params match component props
-* [ ] Generate appropriate wrapper:
-  * [ ] Static wrapper for no params
-  * [ ] Dynamic wrapper with `FromStr` parsing
-* [ ] Handle parse errors:
-  * [ ] Debug: panic with a helpful message
-  * [ ] Release: return default value (triggers 404)
-* [ ] Add new validation errors
+* [x] Detect `:param` syntax in a path
+* [x] Extract component parameter names and types
+* [x] Validate route params match component props
+* [x] Generate appropriate wrapper:
+  * [x] Static wrapper for no params
+  * [x] Dynamic wrapper with `FromStr` parsing
+* [x] Handle parse errors:
+  * [x] Debug: panic with a helpful message
+  * [x] Release: return default value (triggers 404)
+* [x] Add new validation errors
 
 Validation checks:
 ```rust
@@ -500,37 +500,6 @@ fn UserPost(id: String) -> Element { ... }
 // Empty param name
 #[route("/user/:")]
 fn User() -> Element { ... }
-```
-
-Generated code example:
-```rust
-// Input:
-#[route("/user/:id")]
-#[component]
-fn UserProfile(id: String) -> Element { ... }
-
-// Output:
-fn __render_UserProfile(params: HashMap<String, String>) -> Result<Element, ParseError> {
-  let id = params.get("id")
-          .ok_or(ParseError::missing("id", "/user/:id"))?
-          .parse::<String>() // Type comes from fn signature
-          .map_err(|_| ParseError::invalid_type("id", "String", ...))?;
-
-  Ok(UserProfile(UserProfileProps { id }))
-}
-
-// Static generation
-#[allow(non_upper_case_globals)]
-static __PATTERN_UserProfile: OnceLock<RoutePattern> = OnceLock::new();
-
-inventory::submit! {
-    RouteInfo::new(
-        "/user/:id",
-        &__PATTERN_UserProfile,
-        "module::UserProfile",
-        RenderFn::WithParams(__render_UserProfile)
-    )
-}
 ```
 
 ---
