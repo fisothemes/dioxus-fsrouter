@@ -538,15 +538,15 @@ pub fn Outlet() -> Element {
 
 ## 2.6 Validation & Errors (`packages/fsrouter/src/route/validate.rs`, `packages/fsrouter/src/errors.rs`)
 
-Internal route validation (duplicates, mismatches) is handled by the macro at compile time.
-
 Checklist:
-* [ ] Detect ambiguous routes (Runtime conflict):
-  * Example: `/user/:id` vs `/user/:name` (Same priority, same structure)
-  * Action: Return `RouterError::AmbiguousRoutes`
-* [x] ~DuplicateParam~ (Handled by Macro)
-* [x] ~EmptyParam~ (Handled by Macro)
-* [x] ~MismatchedParams~ (Handled by Macro)
+* [ ] Implement `AmbiguityError` in `RouterError` enum
+* [ ] Update `validate_routes()` to detect ambiguous patterns:
+  * Logic: Two routes are ambiguous if they share the same priority AND match overlapping paths.
+  * Example: `/post/:id` vs `/post/:slug` (Conflict!)
+  * Non-Example: `/post/new` vs `/post/:id` (No conflict, static wins priority)
+* [ ] Add Testing Macros (Developer Experience):
+  * `assert_routes_valid!()` - Panics if registry has conflicts
+  * `assert_route_matches!(path, component)` - Verifies routing logic
 
 ---
 
