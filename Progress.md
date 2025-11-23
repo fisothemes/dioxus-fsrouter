@@ -507,28 +507,29 @@ fn User() -> Element { ... }
 ## 2.5 Router Components (`packages/fsrouter/src/router/components.rs`)
 
 Checklist:
-* [ ] Update `Outlet` to use new `find_route()` signature
-* [ ] Pass parameters to the render function
-* [ ] Handle parse failures (404 or fallback)
+* [x] Update `Outlet` to use new `find_route()` signature
+* [x] Pass parameters to the render function
+* [x] Handle parse failures (404 or fallback)
 
 Updated Outlet:
 ```rust
 #[component]
 pub fn Outlet() -> Element {
     let nav_ctx = use_context::<NavigationContext>();
-    let path = nav_ctx.current_route();
+    let path = nav_ctx.current_route.read();
     
-    match find_route(&path) {
+    match find_route(&path) { 
         Some((route, params)) => {
-            route.render(if params.is_empty() {
-                None
-            } else {
-                Some(params)
-            })
+            match route.render(Some(params)) {
+                Ok(element) => element,
+                Err(parse_error) => {
+                    // Log error (debug) and show 404
+                    rsx! { /* 404 */ }
+                }
+            }
+          }
         }
-        None => {
-            rsx! { div { "404 - Not Found: {path}" } }
-        }
+        None => rsx! { /* 404 */ }
     }
 }
 ```
