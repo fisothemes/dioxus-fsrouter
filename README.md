@@ -26,7 +26,7 @@ fn Home() -> Element {
     rsx! { div { "Home" } }
 }
 
-// 🚧 Planned: Route Parameters (Phase 2)
+// ✅ Implemented: Route Parameters
 #[route("/user/:id")]
 #[component]
 fn UserProfile(id: String) -> Element {
@@ -82,7 +82,7 @@ mod admin {
 
 **Capabilities:**
 * [x] Primary route via `#[route("/path")]`
-* [ ] Route parameters (`:param`) automatically parsed and passed as component props
+* [x] Route parameters (`:param`) automatically parsed and passed as component props
 * [ ] Component props must match route parameters (compile-time checked)
 * [ ] Multiple aliases via `#[alias("/path")]`
 * [ ] Access route metadata via `use_route_context()`
@@ -149,7 +149,6 @@ fn SomeComponent() -> Element {
 ### Route Parameters
 
 ```rust
-// 🚧 Planned Syntax
 #[route("/user/:id/posts/:post_id")]
 #[component]
 fn UserPost(id: String, post_id: u32) -> Element {
@@ -172,10 +171,10 @@ LinkTo::<UserPost> { id: "alice", post_id: 42, "View Post" }
 ```
 
 **Capabilities:**
-* [ ] Parameters defined with `:name` syntax
-* [ ] Automatically parsed from URL to component props
-* [ ] Type conversion (String, u32, i32, etc.)
-* [ ] Parse failures result in 404 or fallback route
+* [x] Parameters defined with `:name` syntax
+* [x] Automatically parsed from URL to component props
+* [x] Type conversion (String, u32, i32, etc.)
+* [x] Parse failures result in 404 or fallback route
 * [ ] Access raw params via `use_route_context().params`
 
 ### Route Context
@@ -219,32 +218,21 @@ fn Dashboard() -> Element {
 
 ```rust
 // 🚧 Planned: Props-based query parameters
-#[route("/search")]
+#[route("/search?:q&page:page")]
 #[component]
 fn Search(q: String, page: Option<u32>) -> Element {
     rsx! {
         div {
             "Search: {q}"
-            "Page: {page.unwrap_or(1)}"
+            "Page: {page}"
         }
     }
 }
 // URL: /search?q=rust&page=2 → q="rust", page=Some(2)
-
-// Hook-based query parameters
-#[route("/search")]
-#[component]
-fn SearchAlt() -> Element {
-    let q = use_query("q");
-    let page = use_query::<u32>("page");
-
-    rsx! { div { "Search: {q}, Page: {page.unwrap_or(1)}" } }
-}
 ```
 
 **Capabilities:**
 * [ ] Query parameters are parsed from the URL
-* [ ] Can be accessed via `use_query()` hook or props
 * [ ] Type conversion (String, u32, i32, etc.)
 * [ ] Parse failures result in 404 or fallback route
 
@@ -358,23 +346,23 @@ The router uses a **Position-Weighted Scoring** algorithm to determine which rou
 **Case 1: Specificity (`/user/new` vs `/user/:id`)**
 
 * **`/user/new`**
-    * `user` (Static × 2): 20,000
-    * `new` (Static × 1): 10,000
-    * Length: +2
-    * **Total: 30,002** (Winner) ✅
+  * `user` (Static × 2): 20,000
+  * `new` (Static × 1): 10,000
+  * Length: +2
+  * **Total: 30,002** (Winner) ✅
 
 * **`/user/:id`**
-    * `user` (Static × 2): 20,000
-    * `:id` (Param × 1): 1,000
-    * Length: +2
-    * **Total: 21,002**
+  * `user` (Static × 2): 20,000
+  * `:id` (Param × 1): 1,000
+  * Length: +2
+  * **Total: 21,002**
 
 **Case 2: Root vs Deep**
 
 * **`/about`**
-    * `about` (Static × 1): 10,000
-    * Length: +1
-    * **Total: 10,001**
+  * `about` (Static × 1): 10,000
+  * Length: +1
+  * **Total: 10,001**
 
 ## Project Progress
 
