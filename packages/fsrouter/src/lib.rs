@@ -2,13 +2,13 @@
 
 extern crate self as dioxus_fsrouter;
 pub mod errors;
+pub mod macros;
 pub mod route;
 pub mod router;
 
 #[cfg(test)]
 mod tests;
 
-pub use dioxus_fsrouter_macro as macros;
 #[doc(hidden)]
 pub use inventory;
 
@@ -22,8 +22,8 @@ pub mod prelude {
     pub use crate::macros::route;
     pub use crate::{
         Link, Navigation, Outlet, ParseError, RenderFn, RoutePriority, Router, RouterError,
-        Segment, ValidationErrors, get_routes, route, route::validate_routes_or_panic,
-        use_navigation, validate_routes,
+        Segment, ValidationErrors, assert_route_matches, assert_routes_valid, get_routes, route,
+        route::validate_routes_or_panic, use_navigation, validate_routes,
     };
     #[doc(hidden)]
     pub use inventory;
