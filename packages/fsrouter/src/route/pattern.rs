@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+pub type RoutePriority = usize;
+
 /// A segment in a route pattern
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Segment {
@@ -17,7 +19,7 @@ pub struct RoutePattern {
     /// The parsed segments
     segments: Vec<Segment>,
     /// Priority for route matching (higher = match first)
-    priority: usize,
+    priority: RoutePriority,
 }
 
 impl RoutePattern {
@@ -100,7 +102,7 @@ impl RoutePattern {
     }
 
     /// Priority for route matching (higher = match first)
-    pub fn priority(&self) -> usize {
+    pub fn priority(&self) -> RoutePriority {
         self.priority
     }
 
@@ -151,8 +153,8 @@ impl RoutePattern {
 /// /user/:id      = 10,000×2 + 1,000×1 + 2  = 21,002
 /// /:type/:id     = 1,000×2 + 1,000×1 + 2   = 3,002
 /// ```
-pub fn calculate_priority(segments: &[Segment]) -> usize {
-    let mut priority = 0usize;
+pub fn calculate_priority(segments: &[Segment]) -> RoutePriority {
+    let mut priority = 0;
     let len = segments.len();
 
     for (index, segment) in segments.iter().enumerate() {
