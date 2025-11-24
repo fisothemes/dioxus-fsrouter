@@ -14,7 +14,8 @@ pub use inventory;
 
 pub use errors::{ParseError, RouterError, ValidationErrors};
 pub use route::{
-    RenderFn, RouteInfo, RoutePriority, Segment, find_route, get_routes, validate_routes,
+    RenderFn, RouteInfo, RoutePriority, Segment, are_patterns_ambiguous, find_route, get_routes,
+    validate_routes,
 };
 pub use router::{Link, Navigation, Outlet, Router, use_navigation};
 

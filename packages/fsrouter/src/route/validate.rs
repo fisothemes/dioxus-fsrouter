@@ -97,7 +97,7 @@ pub fn validate_routes() -> std::result::Result<(), ValidationErrors> {
 ///
 /// # Examples
 /// ```
-/// use dioxus_fsrouter:: {Segment, validate::are_patterns_ambiguous};
+/// use dioxus_fsrouter:: {Segment, are_patterns_ambiguous};
 ///
 /// let segments_a = vec![Segment::Static("user".into()), Segment::Param("id".into())];
 /// let segments_b = vec![Segment::Static("user".into()), Segment::Param("name".into())];
