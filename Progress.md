@@ -539,14 +539,31 @@ pub fn Outlet() -> Element {
 ## 2.6 Validation & Errors (`packages/fsrouter/src/route/validate.rs`, `packages/fsrouter/src/errors.rs`)
 
 Checklist:
-* [ ] Implement `AmbiguityError` in `RouterError` enum
-* [ ] Update `validate_routes()` to detect ambiguous patterns:
+* [x] Implement `AmbiguityError` in `RouterError` enum
+* [x] Update `validate_routes()` to detect ambiguous patterns:
   * Logic: Two routes are ambiguous if they share the same priority AND match overlapping paths.
   * Example: `/post/:id` vs `/post/:slug` (Conflict!)
   * Non-Example: `/post/new` vs `/post/:id` (No conflict, static wins priority)
-* [ ] Add Testing Macros (Developer Experience):
+* [x] Add Testing Macros (Developer Experience):
   * `assert_routes_valid!()` - Panics if registry has conflicts
   * `assert_route_matches!(path, component)` - Verifies routing logic
+
+```rust
+#[test]
+fn test_my_routes() {
+    // Fails if no route matches or if it matches the wrong component
+    assert_route_matches!("/user/123", UserProfile);
+    
+    // Fails if parameters don't parse correctly
+    assert_route_matches!("/user/123", UserProfile, { id: "123" });
+}
+
+#[test]
+fn test_registry_sanity() {
+  // Fails if any duplicates or ambiguities exist in the whole app
+  assert_routes_valid!();
+}
+```
 
 ---
 

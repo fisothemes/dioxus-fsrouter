@@ -25,10 +25,24 @@ pub enum RouterError {
         \n\
         Make sure you have:\n\
             1. Defined routes using #[route(\"/path\")]\n\
-            2. Imported all modules containing routes\n\
-            3. Called the route functions at least once (for WASM)"
+            2. Imported all modules containing routes"
     )]
     NoRoutesRegistered,
+
+    #[error(
+        "Ambiguous routes detected:\n\
+        Route A: '{path_a}' (in {component_a})\n\
+        Route B: '{path_b}' (in {component_b})\n\
+        \n\
+        These routes have the same priority and overlapping patterns.\n\
+        The router cannot deterministically decide which one to match."
+    )]
+    AmbiguousRoutes {
+        path_a: String,
+        component_a: String,
+        path_b: String,
+        component_b: String,
+    },
 
     /// Route path is invalid
     #[error("Invalid route path '{path}': {reason}")]

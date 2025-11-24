@@ -8,8 +8,8 @@ use std::sync::OnceLock;
 pub mod pattern;
 pub mod validate;
 
-pub use pattern::{RoutePattern, Segment};
-pub use validate::{validate_routes, validate_routes_or_panic};
+pub use pattern::{RoutePattern, RoutePriority, Segment};
+pub use validate::{are_patterns_ambiguous, validate_routes, validate_routes_or_panic};
 
 use crate::errors::ParseResult;
 
@@ -74,7 +74,7 @@ impl<'a> RouteInfo<'a> {
     }
 
     /// Get the priority for route matching
-    pub fn priority(&self) -> usize {
+    pub fn priority(&self) -> RoutePriority {
         self.pattern().priority()
     }
 
