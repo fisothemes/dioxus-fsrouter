@@ -32,6 +32,13 @@ fn NavBar() -> Element {
                 }
             }
             Link {
+                to: "/blog".to_string(),
+                span {
+                    id: "nav-link",
+                    "Blogs"
+                }
+            }
+            Link {
                 to: "/about".to_string(),
                 span {
                     id: "nav-link",
@@ -67,6 +74,62 @@ fn Home() -> Element {
     rsx! {
         h1{ "Home" }
         p { "Welcome to the Dioxus FsRouter Phase 1 demo!" }
+    }
+}
+
+#[route("/blog")]
+#[component]
+fn BlogHome() -> Element {
+    let bloggers = ["Alice", "Bob", "Charlie"];
+
+    rsx! {
+        h1{ "Blog" }
+        p { "Click on the links below to read some blog posts!" }
+        ul {
+            for blogger in bloggers.iter() {
+                li {
+                    Link {
+                        to: format!("/blog/{blogger}/0"),
+                        b { "{blogger}" }
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[route("/blog/:name/:id")]
+#[component]
+fn Blog(name: String, id: u32) -> Element {
+    let name_for_prev = name.clone();
+    let name_for_next = name.clone();
+
+    rsx! {
+        h1{ "{name}'s Blog Post" }
+        p {
+            "This is a blog post about the number "
+            b {"{id}"}
+            "."
+        }
+        p { "It's a bit longer than usual, but it's still a blog post." }
+        span {
+            id: "blog-nav",
+            button {
+                onclick: move |_| {
+                    let id = id.saturating_sub(1);
+                    use_navigation().push(format!("/blog/{name_for_prev}/{id}"));
+                },
+                "Previous"
+            }
+            button {
+                onclick: move |_| {
+                    let id = id.saturating_add(1);
+                    use_navigation().push(format!("/blog/{name_for_next}/{id}"));
+                },
+                "Next"
+            }
+        }
+
     }
 }
 
