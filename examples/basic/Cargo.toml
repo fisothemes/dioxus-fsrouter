@@ -9,4 +9,4 @@ repository.workspace = true
 [dependencies]
 dioxus = { workspace = true}
 dioxus-fsrouter = { workspace = true }
-tracing = {workspace = true}
+dioxus-logger = {workspace = true}

@@ -40,7 +40,7 @@ version = "0.1.0"
 dependencies = [
  "dioxus",
  "dioxus-fsrouter",
- "tracing",
+ "dioxus-logger",
 ]
 
 [[package]]
