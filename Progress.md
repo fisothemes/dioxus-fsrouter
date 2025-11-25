@@ -570,7 +570,7 @@ fn test_registry_sanity() {
 ## 2.7 Example App (`examples/basic`)
 
 Checklist:
-* [ ] Add routes with parameters:
+* [x] Add routes with parameters:
   ```rust
   #[route("/user/:id")]
   fn UserProfile(id: String) -> Element { ... }
@@ -581,9 +581,9 @@ Checklist:
   #[route("/user/:user_id/posts/:post_id")]
   fn UserPost(user_id: String, post_id: u32) -> Element { ... }
   ```
-* [ ] Add navigation to parameterised routes
-* [ ] Show parameter values in UI
-* [ ] Test parse failures
+* [x] Add navigation to parameterised routes
+* [x] Show parameter values in UI
+* [x] Test parse failures
 
 ---
 

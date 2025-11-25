@@ -1,3 +1,9 @@
+mod blog;
+mod helpers;
+mod users;
+
+use helpers::NavButton;
+
 use dioxus::prelude::*;
 use dioxus_fsrouter::prelude::*;
 
@@ -13,9 +19,7 @@ fn App() -> Element {
         document::Stylesheet{ href: CSS }
         Router {
             NavBar {}
-            main {
-                Outlet {}
-            }
+            main { Outlet {} }
         }
     }
 }
@@ -24,41 +28,12 @@ fn App() -> Element {
 fn NavBar() -> Element {
     rsx! {
         nav {
-            Link {
-                to: "/".to_string(),
-                span {
-                    id: "nav-link",
-                    "Home"
-                }
-            }
-            Link {
-                to: "/about".to_string(),
-                span {
-                    id: "nav-link",
-                    "About"
-                }
-            }
-            Link {
-                to: "/contact".to_string(),
-                span {
-                    id: "nav-link",
-                    "Contact"
-                }
-            }
+            Link { to: "/".to_string(), "Home" }
+            Link { to: "/blog".to_string(), "Blogs" }
+            Link { to: "/users".to_string(), "Users" }
+            Link { to: "/about".to_string(), "About" }
         }
     }
-}
-
-fn _print_all_routes() {
-    let msg = "=== Printing registered routes... ===";
-    let width = msg.len();
-
-    println!("{msg}");
-    for route in get_routes() {
-        println!("{} \t-> {}", route.path(), route.component_name());
-    }
-
-    println!("{:=<width$}", "");
 }
 
 #[route("/")]
@@ -66,7 +41,17 @@ fn _print_all_routes() {
 fn Home() -> Element {
     rsx! {
         h1{ "Home" }
-        p { "Welcome to the Dioxus FsRouter Phase 1 demo!" }
+        p { "Welcome to the Dioxus FsRouter Phase 2 (Route Parameters) demo!" }
+        p { "This example demonstrates:" }
+        ul {
+            li { "Static Routes (e.g., /about)" }
+            li { "Dynamic Parameters (e.g., /user/:name)" }
+            li { "Multiple Types (String, u32)" }
+            li { "Priority Scoring (Static beats Dynamic)" }
+        }
+        button {
+            onclick: move |_| helpers::print_all_routes(), "Print Route Registry"
+        }
     }
 }
 
@@ -76,15 +61,21 @@ fn About() -> Element {
     rsx! {
         h1{ "About" }
         p {
-            "This is a minimal router implementation using:"
+            "This is a simple, attribute-based router for Dioxus applications that provides "
+            br { "component-based routing with compile-time safety, automatic route registration, " }
+            br { "and minimal boilerplate" }
         }
+        p { "The core principles of this router are:" }
         ul {
-            li { "inventory crate for compile-time registration" }
-            li { "Procedural macros for the #[route] attribute" }
-            li { "Dioxus components and context" }
+            li { b { "Component-First: " } "Routes are attached directly to components via attributes" }
+            li { b { "Type-Safe: " } "All navigation is type-checked at compile time" }
+            li { b { "Minimal Boilerplate: " } "No enums, no manual registration, no string-based routing" }
+            li { b { "Compile-Time Validation: " } "Invalid URLs caught at compile time" }
+            li { b { "Auto-Discovery: " } "Routes automatically register themselves via global inventory" }
         }
-        p {
-            "Phase 1 focuses on validating the core approach before building advanced features."
+        div{
+            id: "page-navigation",
+            NavButton {path: "/contact".to_string(), text: "Contact"}
         }
     }
 }
@@ -94,15 +85,15 @@ fn About() -> Element {
 fn Contact() -> Element {
     rsx! {
         h1 { "Contact" }
-        p { "Feel free to get in touch!" }
+        p { "Check out the repo and get in touch on GitHub!" }
         a {
-            id: "github-link",
             href: "https://github.com/fisothemes/dioxus-fsrouter",
-            img {
-                style: "width: 48px; height: 48px;",
-                src: "https://img.icons8.com/?size=100&id=12599&format=png&color=000000"
-            }
-            "GitHub"
+            target: "_blank",
+            "fisothemes/dioxus-fsrouter"
+        }
+        div{
+            id: "page-navigation",
+            NavButton {path: "/about".to_string(), text: "Back to About"}
         }
     }
 }
