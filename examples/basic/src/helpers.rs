@@ -21,22 +21,14 @@ pub fn NavButton(path: String, text: String) -> Element {
     }
 }
 
+#[rustfmt::skip]
 pub fn print_all_routes() {
     let routes = get_routes();
 
     tracing::info!("Route Registry ({} routes registered)", routes.len());
-    tracing::info!(
-        "================================================================================"
-    );
-    tracing::info!(
-        "{:<30} | {:<10} | {}",
-        "Path Pattern",
-        "Priority",
-        "Component"
-    );
-    tracing::info!(
-        "-------------------------------+------------+-----------------------------------"
-    );
+    tracing::info!("================================================================================");
+    tracing::info!("{:<30} | {:<10} | {}", "Path Pattern", "Priority", "Component");
+    tracing::info!("-------------------------------+------------+-----------------------------------");
 
     for route in routes {
         let path = route.path();
@@ -46,7 +38,5 @@ pub fn print_all_routes() {
         tracing::info!("{path:<30} | {priority:<10} | {component}");
     }
 
-    tracing::info!(
-        "================================================================================\n"
-    );
+    tracing::info!("================================================================================\n");
 }
