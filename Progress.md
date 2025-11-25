@@ -676,15 +676,15 @@ panic!("Route '{}' requires params but none provided. This is a router bug.");
 
 Week 1:
 * [x] Pattern matching core
-* [ ] Route module updates
-* [ ] Basic tests
-* [ ] Macro updates
-* [ ] Component updates
-* [ ] Validation updates
-* [ ] Error types
+* [x] Route module updates
+* [x] Basic tests
+* [x] Macro updates
+* [x] Component updates
+* [x] Validation updates
+* [x] Error types
 
 Week 2:
-* [ ] Example updates
+* [x] Example updates
 * [ ] Integration tests
 * [ ] Documentation
 * [ ] Polish & bug fixes
