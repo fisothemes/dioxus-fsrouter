@@ -595,18 +595,18 @@ Checklist:
 * [x] Pattern parsing
 * [x] Pattern matching
 * [x] Priority calculation
-* [ ] Parameter extraction
-* [ ] Type conversion (`FromStr`)
-* [ ] Parse error handling
+* [x] Parameter extraction
+* [x] Type conversion (`FromStr`)
+* [x] Parse error handling
 
 ### 2.8.2 Integration Tests
 
 Checklist:
-* [ ] Register mixed routes (static + dynamic)
-* [ ] Match URLs against patterns
-* [ ] Extract and parse parameters
-* [ ] Verify priority ordering
-* [ ] Test parse failures -> 404
+* [x] Register mixed routes (static + dynamic)
+* [x] Match URLs against patterns
+* [x] Extract and parse parameters
+* [x] Verify priority ordering
+* [x] Test parse failures -> 404
 
 Example test:
 ```rust
@@ -685,7 +685,7 @@ Week 1:
 
 Week 2:
 * [x] Example updates
-* [ ] Integration tests
+* [x] Integration tests
 * [ ] Documentation
 * [ ] Polish & bug fixes
 
