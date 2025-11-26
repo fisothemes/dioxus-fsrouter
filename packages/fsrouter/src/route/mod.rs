@@ -9,7 +9,9 @@ pub mod pattern;
 pub mod validate;
 
 pub use pattern::{RoutePattern, RoutePriority, Segment};
-pub use validate::{are_patterns_ambiguous, validate_routes, validate_routes_or_panic};
+pub use validate::{
+    are_patterns_ambiguous, validate_route_registry, validate_routes, validate_routes_or_panic,
+};
 
 use crate::errors::ParseResult;
 
