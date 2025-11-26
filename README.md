@@ -83,7 +83,7 @@ mod admin {
 **Capabilities:**
 * [x] Primary route via `#[route("/path")]`
 * [x] Route parameters (`:param`) automatically parsed and passed as component props
-* [ ] Component props must match route parameters (compile-time checked)
+* [x] Component props must match route parameters (compile-time checked)
 * [ ] Multiple aliases via `#[alias("/path")]`
 * [ ] Access route metadata via `use_route_context()`
 * [ ] Grouped routes via `#[route_group("/prefix")]` on modules
@@ -284,13 +284,13 @@ fn NotFound() -> Element {
 #### URL Validation
 ```rust
 #[route("/valid/path")]        // ✅ Valid | ✅ Implemented
-#[route("/user/:id")]          // ✅ Valid | 🚧 Planned
+#[route("/user/:id")]          // ✅ Valid | ✅ Implemented
 #[route("/")]                  // ✅ Valid | ✅ Implemented
 
 #[route("no-slash")]           // ❌ Error: Must start with '/'       | ✅ Implemented
 #[route("/double//slash")]     // ❌ Error: No double slashes         | ✅ Implemented
-#[route("/user/:")]            // ❌ Error: Empty parameter name      | 🚧 Planned
-#[route("/user/:id/:id")]      // ❌ Error: Duplicate parameter ':id' | 🚧 Planned
+#[route("/user/:")]            // ❌ Error: Empty parameter name      | ✅ Implemented
+#[route("/user/:id/:id")]      // ❌ Error: Duplicate parameter ':id' | ✅ Implemented
 ```
 
 #### Fallback Validation
