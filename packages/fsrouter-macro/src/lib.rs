@@ -132,28 +132,27 @@ fn route_impl(attr: TokenStream, item: TokenStream) -> syn::Result<TokenStream> 
         }
 
         // Extract parameters from the route path (e.g. "id" from "/user/:id") after validation
-        if segment.starts_with(':') {
-            if let Some(param) = segment.strip_prefix(':') {
-                if !route_params.insert(param) {
-                    return Err(syn::Error::new_spanned(
-                        path,
-                        format!(
-                            "Duplicate parameter '{param}' in route '{path_str}'.\n\
+        if segment.starts_with(':')
+            && let Some(param) = segment.strip_prefix(':')
+            && !route_params.insert(param)
+        {
+            return Err(syn::Error::new_spanned(
+                path,
+                format!(
+                    "Duplicate parameter '{param}' in route '{path_str}'.\n\
                             Parameters must be unique.",
-                        ),
-                    ));
-                }
-            }
+                ),
+            ));
         }
     }
 
     // Map function arguments to their types
     let mut func_args = Vec::new();
     for arg in func.sig.inputs.iter() {
-        if let FnArg::Typed(pat_type) = arg {
-            if let Pat::Ident(pat_ident) = &*pat_type.pat {
-                func_args.push((pat_ident.ident.clone(), &pat_type.ty));
-            }
+        if let FnArg::Typed(pat_type) = arg
+            && let Pat::Ident(pat_ident) = &*pat_type.pat
+        {
+            func_args.push((pat_ident.ident.clone(), &pat_type.ty));
         }
     }
 

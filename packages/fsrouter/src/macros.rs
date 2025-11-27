@@ -3,7 +3,7 @@ pub use dioxus_fsrouter_macro::*;
 /// Assert that the route registry is valid (no duplicates or ambiguities).
 ///
 /// # Example
-/// ```rust
+/// ```ignore
 /// #[test]
 /// fn test_routes() {
 ///     dioxus_fsrouter::assert_routes_valid!();
