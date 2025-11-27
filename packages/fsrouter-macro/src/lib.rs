@@ -1,6 +1,7 @@
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
-use syn::parse;
+use std::collections::BTreeSet;
+use syn::{FnArg, Pat, parse};
 
 /// Mark a component as a route
 ///
@@ -23,6 +24,7 @@ fn route_impl(attr: TokenStream, item: TokenStream) -> syn::Result<TokenStream> 
 
     let path_str = path.value();
     let func_name = func.sig.ident.to_string();
+    let func_ident = &func.sig.ident;
 
     // Validation: a path must start with '/'
     if !path_str.starts_with('/') {
@@ -66,78 +68,212 @@ fn route_impl(attr: TokenStream, item: TokenStream) -> syn::Result<TokenStream> 
         ));
     }
 
-    // Validation: no whitespace in a path
-    if path_str.contains(' ') {
-        return Err(syn::Error::new_spanned(
-            path,
-            format!(
-                "Route path should not contain whitespace\n\
+    let mut route_params = BTreeSet::new();
+
+    for segment in path_str.split('/') {
+        // Validation: no whitespace in a path
+        if segment.contains(' ') {
+            return Err(syn::Error::new_spanned(
+                path,
+                format!(
+                    "Route path should not contain whitespace\n\
                     Got: '{path_str}'\n\
-                \n\
-                Whitespace is not allowed in route paths."
-            ),
-        ));
+                    Use: '{}'\n\
+                    \n\
+                    Whitespace is not allowed in route paths.",
+                    path_str.replace(" ", "%20")
+                ),
+            ));
+        }
+
+        // Validation: no wildcards
+        if segment.contains('*') {
+            return Err(syn::Error::new_spanned(
+                path,
+                "Wildcard routes ('*') are not yet supported.",
+            ));
+        }
+
+        // Validation: no query parameters
+        if segment.contains('?') {
+            return Err(syn::Error::new_spanned(
+                path,
+                "Query parameters (e.g. '/blog?:name&:surname') are not yet supported.",
+            ));
+        }
+
+        // Validation: no catch-all parameters
+        if segment.starts_with(":..") {
+            return Err(syn::Error::new_spanned(
+                path,
+                "Catch-all routes (e.g. '/blog/:..segments') are not yet supported.",
+            ));
+        }
+
+        // Validation: no empty parameters (e.g. "/user/:" or "/file/:/edit")
+        if segment.starts_with(':') && segment.ends_with(':') {
+            return Err(syn::Error::new_spanned(
+                path,
+                "Empty parameters (e.g. '/user/:' or '/file/:/edit') are not allowed in route paths.",
+            ));
+        }
+
+        // Validation: not segment ambiguity (e.g. "/blog/id:", /blog/id:slug", "/blog/id:/:slug")
+        if !segment.starts_with(':') && segment.contains(':') {
+            return Err(syn::Error::new_spanned(
+                path,
+                format!(
+                    "Ambiguous route segment '{segment}' in route '{path_str}'.\n\
+                    Colons ':' are reserved for parameters (e.g. '/:id').\n \
+                    \n\
+                    If you meant a parameter, ensure the colon is at the start.",
+                ),
+            ));
+        }
+
+        // Extract parameters from the route path (e.g. "id" from "/user/:id") after validation
+        if segment.starts_with(':')
+            && let Some(param) = segment.strip_prefix(':')
+            && !route_params.insert(param)
+        {
+            return Err(syn::Error::new_spanned(
+                path,
+                format!(
+                    "Duplicate parameter '{param}' in route '{path_str}'.\n\
+                            Parameters must be unique.",
+                ),
+            ));
+        }
     }
 
-    // Validation: no route parameters yet (Phase 1)
-    if path_str.contains(':') {
+    // Map function arguments to their types
+    let mut func_args = Vec::new();
+    for arg in func.sig.inputs.iter() {
+        if let FnArg::Typed(pat_type) = arg
+            && let Pat::Ident(pat_ident) = &*pat_type.pat
+        {
+            func_args.push((pat_ident.ident.clone(), &pat_type.ty));
+        }
+    }
+
+    // Validate that route parameters match function arguments
+    if route_params.len() != func_args.len() {
         return Err(syn::Error::new_spanned(
-            path,
+            &func.sig.inputs,
             format!(
-                "Route parameters are not yet supported in Phase 1\n\
-                    Got: '{path_str}'\n\
-                \n\
-                Route parameters like '/user/:id' will be supported in Phase 2."
+                "Route parameters mismatch.\n\
+                Route '{path_str}' has {} parameters: {route_params:?}\n\
+                Component '{func_name}' has {} arguments: {:?}\n\
+                They must match exactly.",
+                route_params.len(),
+                func_args.len(),
+                func_args
+                    .iter()
+                    .map(|(id, _)| id.to_string())
+                    .collect::<Vec<_>>()
             ),
         ));
     }
 
-    // Validation: no query parameters in a path
-    if path_str.contains('?') {
-        return Err(syn::Error::new_spanned(
-            path,
-            format!(
-                "Route path should not contain query parameters\n\
-                    Got: '{path_str}'\n\
-                \n\
-                Query parameters are handled separately and should not be in the route path.",
-            ),
-        ));
+    // Ensure every route parameter exists in the function arguments
+    for param in &route_params {
+        if !func_args.iter().any(|(ident, _)| ident == param) {
+            return Err(syn::Error::new_spanned(
+                &func.sig.inputs,
+                format!(
+                    "Route parameter '{param}' not found in component arguments.\n\
+                    Ensure component has an argument named '{param}'.",
+                ),
+            ));
+        }
     }
 
-    // Validation: no route parameters yet (Phase 1)
-    if !func.sig.inputs.is_empty() {
-        return Err(syn::Error::new_spanned(
-            func.sig.inputs,
-            format!(
-                "Route '{path_str}' cannot have parameters in Phase 1\n\
-                \n\
-                Route parameters will be supported in Phase 2.\n\
-                For now, routes must be parameter-free components.",
-            ),
-        ));
-    }
+    let render_func_name = format_ident!("__render_{}", func_name);
+    let pattern_static_name = format_ident!("__PATTERN_{}", func_name);
 
-    let func_ident = &func.sig.ident;
-    let render_fn_name = format_ident!("__render_{}", func_name);
+    // Dioxus components typically generate a Props struct named `{ComponentName}Props`
+    let props_struct_name = format_ident!("{}Props", func_name);
+
+    // Generate the wrapper function based on whether the route has parameters
+    let wrapper_func = if route_params.is_empty() {
+        quote! {
+            // Static wrapper function
+            #[allow(non_snake_case)]
+            fn #render_func_name() -> ::dioxus::prelude::Element {
+                #func_ident()
+            }
+        }
+    } else {
+        // Generate the parsing logic for each argument
+        let param_parsing_logic = func_args.iter().map(|(ident, ty)| {
+            let param_name = ident.to_string();
+            quote! {
+                let #ident = params
+                    .get(#param_name)
+                    .ok_or_else(|| ::dioxus_fsrouter::errors::ParseError::missing(#param_name, #path_str))?
+                    .parse::<#ty>()
+                    .map_err(|_| {
+                        let value = params.get(#param_name).unwrap().clone();
+                        ::dioxus_fsrouter::errors::ParseError::invalid_type(
+                            #param_name,
+                            stringify!(#ty),
+                            value,
+                            #path_str
+                        )
+                    })?;
+            }
+        });
+
+        // Generate the field assignments for the Props struct
+        let props_fields = func_args.iter().map(|(ident, _)| {
+            quote! { #ident }
+        });
+
+        quote! {
+            // Dynamic wrapper function
+            #[allow(non_snake_case)]
+            fn #render_func_name(
+                params: std::collections::HashMap<String, String>
+            ) -> ::dioxus_fsrouter::errors::ParseResult<::dioxus::prelude::Element> {
+
+                // Parse all parameters
+                #(#param_parsing_logic)*
+
+                // Call the component with the parsed props
+                Ok(#func_ident( #props_struct_name {
+                    #(#props_fields),*
+                }))
+            }
+        }
+    };
+
+    // Determine the correct enum variant for the inventory submission
+    let render_fn_variant = if route_params.is_empty() {
+        quote! { ::dioxus_fsrouter::RenderFn::Static(#render_func_name) }
+    } else {
+        quote! { ::dioxus_fsrouter::RenderFn::WithParams(#render_func_name) }
+    };
 
     let item: proc_macro2::TokenStream = item.into();
 
     Ok(quote! {
         #item
 
-        // Generate a wrapper render function
-        #[allow(non_snake_case)]
-        fn #render_fn_name() -> ::dioxus::prelude::Element {
-            #func_ident()
-        }
+        // Generate the wrapper function (Static or WithParams)
+        #wrapper_func
 
-        // Submit this route to the global inventory
+        // Generate a static lock for the route pattern to ensure lifetime safety
+        #[allow(non_upper_case_globals)]
+        static #pattern_static_name: ::std::sync::OnceLock<::dioxus_fsrouter::route::RoutePattern>
+            = ::std::sync::OnceLock::new();
+
+        // Submit the route to the global inventory
         ::dioxus_fsrouter::inventory::submit! {
             ::dioxus_fsrouter::RouteInfo::new(
                 #path_str,
+                &#pattern_static_name,
                 concat!(module_path!(), "::", stringify!(#func_ident)),
-                #render_fn_name
+                #render_fn_variant
             )
         }
     }

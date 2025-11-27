@@ -25,10 +25,24 @@ pub enum RouterError {
         \n\
         Make sure you have:\n\
             1. Defined routes using #[route(\"/path\")]\n\
-            2. Imported all modules containing routes\n\
-            3. Called the route functions at least once (for WASM)"
+            2. Imported all modules containing routes"
     )]
     NoRoutesRegistered,
+
+    #[error(
+        "Ambiguous routes detected:\n\
+        Route A: '{path_a}' (in {component_a})\n\
+        Route B: '{path_b}' (in {component_b})\n\
+        \n\
+        These routes have the same priority and overlapping patterns.\n\
+        The router cannot deterministically decide which one to match."
+    )]
+    AmbiguousRoutes {
+        path_a: String,
+        component_a: String,
+        path_b: String,
+        component_b: String,
+    },
 
     /// Route path is invalid
     #[error("Invalid route path '{path}': {reason}")]
@@ -37,6 +51,71 @@ pub enum RouterError {
 
 /// Result type for router operations
 pub type Result<T> = std::result::Result<T, RouterError>;
+
+/// Errors that can occur during route parameter parsing
+#[derive(Error, Debug, Clone, PartialEq, Eq)]
+pub enum ParseError {
+    /// A required parameter is missing from the URL
+    #[error("Missing required parameter '{param}' for route '{route}'")]
+    MissingParam { param: String, route: String },
+
+    /// Failed to parse parameter to the expected type
+    #[error(
+        "Failed to parse parameter '{param}' as {expected_type}.\n\
+        Value: '{value}'\n\
+        Route: '{route}'"
+    )]
+    InvalidType {
+        param: String,
+        expected_type: String,
+        value: String,
+        route: String,
+    },
+
+    /// Route requires parameters, but none were provided (internal error)
+    #[error("Route '{route}' requires parameters but none were provided")]
+    MissingParams { route: String },
+
+    /// URL decoding failed
+    #[error("Failed to decode URL parameter '{param}': {reason}")]
+    DecodingError { param: String, reason: String },
+}
+
+impl ParseError {
+    /// Create a missing parameter error
+    pub fn missing(param: impl Into<String>, route: impl Into<String>) -> Self {
+        Self::MissingParam {
+            param: param.into(),
+            route: route.into(),
+        }
+    }
+
+    /// Create an invalid type error
+    pub fn invalid_type(
+        param: impl Into<String>,
+        expected_type: impl Into<String>,
+        value: impl Into<String>,
+        route: impl Into<String>,
+    ) -> Self {
+        Self::InvalidType {
+            param: param.into(),
+            expected_type: expected_type.into(),
+            value: value.into(),
+            route: route.into(),
+        }
+    }
+
+    /// Create a URL decoding error
+    pub fn decoding(param: impl Into<String>, reason: impl Into<String>) -> Self {
+        Self::DecodingError {
+            param: param.into(),
+            reason: reason.into(),
+        }
+    }
+}
+
+/// Result type for route parameter parsing
+pub type ParseResult<T> = std::result::Result<T, ParseError>;
 
 /// Multiple validation errors collected together
 #[derive(Error, Debug, Clone)]
@@ -121,7 +200,7 @@ impl Deref for RouterErrorsList {
 
 #[cfg(test)]
 mod tests {
-    use crate::*;
+    use super::*;
 
     #[test]
     fn test_router_error_duplicate_display() {
@@ -237,5 +316,35 @@ mod tests {
 
         let error: Box<dyn std::error::Error> = Box::new(errors);
         assert!(error.to_string().contains("validation failed"));
+    }
+
+    #[test]
+    fn test_parse_error_missing_param() {
+        let error = ParseError::missing("id", "/user/:id");
+        let message = error.to_string();
+        assert!(message.contains("Missing"));
+        assert!(message.contains("id"));
+    }
+
+    #[test]
+    fn test_parse_error_invalid_type() {
+        let error = ParseError::invalid_type("id", "u32", "abc", "/post/:id");
+        let message = error.to_string();
+        assert!(message.contains("Failed to parse"));
+        assert!(message.contains("id"));
+        assert!(message.contains("u32"));
+        assert!(message.contains("abc"));
+    }
+
+    #[test]
+    fn test_parse_error_helpers() {
+        let error = ParseError::missing("name", "/user/:name");
+        assert!(matches!(error, ParseError::MissingParam { .. }));
+
+        let error = ParseError::invalid_type("age", "i32", "old", "/user/:age");
+        assert!(matches!(error, ParseError::InvalidType { .. }));
+
+        let error = ParseError::decoding("path", "invalid UTF-8");
+        assert!(matches!(error, ParseError::DecodingError { .. }));
     }
 }

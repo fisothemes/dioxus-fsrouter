@@ -1,11 +1,12 @@
 use crate::errors::{RouterError, ValidationErrors};
-use crate::route::get_routes;
+use crate::route::{RouteInfo, RoutePriority, Segment, get_routes};
 
 /// Validate all registered routes
 ///
 /// This checks for:
 /// - Duplicate route paths
 /// - No routes registered
+/// - Ambiguous routes (overlapping patterns with the same priority, e.g. '/user/:id' and '/user/:name')
 ///
 /// # Returns
 /// - `Ok(())` if all routes are valid
@@ -18,31 +19,102 @@ use crate::route::get_routes;
 ///     Err(e) => eprintln!("Validation failed:\n{}", e),
 /// }
 /// ```
-pub fn validate_routes() -> std::result::Result<(), ValidationErrors> {
+pub fn validate_routes() -> Result<(), ValidationErrors> {
+    validate_route_registry(get_routes())
+}
+
+/// Validates a list of route definitions.
+///
+/// This checks for:
+/// - Duplicate route paths
+/// - No routes registered
+/// - Ambiguous routes (overlapping patterns with the same priority, e.g. '/user/:id' and '/user/:name')
+///
+/// # Parameters
+/// - `routes`: A slice of references to `RouteInfo` objects. Each `RouteInfo` object represents a route
+///   definition that includes its path, associated component name, priority, and pattern segments.
+///
+/// # Returns
+/// - `Ok(())` if all routes are valid
+/// - `Err(ValidationErrors)` containing all validation errors found
+///
+///
+/// # Example
+/// ```ignore
+/// static RP1: OnceLock<RoutePattern> = OnceLock::new();
+/// static RP2: OnceLock<RoutePattern> = OnceLock::new();
+/// static RP3: OnceLock<RoutePattern> = OnceLock::new();
+///
+/// fn static_render() -> Element { rsx! { "Static Route" } }
+/// fn dynamic_render(_: HashMap<String, String>) -> ParseResult<Element> { Ok(rsx! { "Dynamic Route" }) }
+///
+/// let route1 = RouteInfo::new("/home", &RP1, "HomeComponent", RenderFn::Static(static_render));
+/// let route2 = RouteInfo::new("/user/:id", &RP2, "UserComponent", RenderFn::WithParams(dynamic_render));
+/// let route3 = RouteInfo::new("/user/:name", &RP3, "NameComponent", RenderFn::WithParams(dynamic_render));
+///
+/// let registry = vec![&route1, &route2, &route3];
+///
+/// let result = validate_route_registry(&registry);
+///
+/// assert!(result.is_err());
+///
+/// let err = result.unwrap_err();
+/// assert!(err.to_string().contains("Ambiguous routes"));
+/// ```
+pub fn validate_route_registry(routes: &[&RouteInfo]) -> Result<(), ValidationErrors> {
     use std::collections::HashMap;
 
     let mut validation_errors = ValidationErrors::new();
+
+    if routes.is_empty() {
+        validation_errors.add(RouterError::NoRoutesRegistered);
+        return Err(validation_errors);
+    }
+
     let mut seen: HashMap<&str, &str> = HashMap::new();
-    let mut route_count = 0;
+    let mut priority_buckets: HashMap<RoutePriority, Vec<&RouteInfo>> = HashMap::new();
 
-    for route in get_routes() {
-        route_count += 1;
-
-        // Check for duplicate paths
+    for route in routes {
+        // Check for exact duplicate paths
         if let Some(existing_component) = seen.get(route.path()) {
             validation_errors.add(RouterError::DuplicateRoute {
                 path: route.path().to_string(),
                 first_component: existing_component.to_string(),
                 second_component: route.component_name().to_string(),
             });
-        } else {
-            seen.insert(route.path(), route.component_name());
+
+            continue;
         }
+
+        seen.insert(route.path(), route.component_name());
+
+        priority_buckets
+            .entry(route.priority())
+            .or_default()
+            .push(route);
     }
 
-    // Check if any routes were registered
-    if route_count == 0 {
-        validation_errors.add(RouterError::NoRoutesRegistered);
+    for (_, bucket) in priority_buckets {
+        // Ambiguity can only happen if 2+ routes share the same priority
+        if bucket.len() < 2 {
+            continue;
+        }
+
+        for (i, route_a) in bucket.iter().enumerate() {
+            for route_b in bucket.iter().skip(i + 1) {
+                if are_patterns_ambiguous(
+                    route_a.pattern().segments(),
+                    route_b.pattern().segments(),
+                ) {
+                    validation_errors.add(RouterError::AmbiguousRoutes {
+                        path_a: route_a.path().to_string(),
+                        component_a: route_a.component_name().to_string(),
+                        path_b: route_b.path().to_string(),
+                        component_b: route_b.component_name().to_string(),
+                    });
+                }
+            }
+        }
     }
 
     if validation_errors.is_empty() {
@@ -50,6 +122,56 @@ pub fn validate_routes() -> std::result::Result<(), ValidationErrors> {
     } else {
         Err(validation_errors)
     }
+}
+
+/// Checks if two sets of path segments are ambiguous, meaning that they
+/// can overlap (or conflict) when matched against the same request path.
+///
+/// # Parameters
+/// - `segments_a`: A slice of `Segment` representing the first set of segments.
+/// - `segments_b`: A slice of `Segment` representing the second set of segments.
+///
+/// # Returns
+/// - `true` if the paths represented by `segments_a` and `segments_b` can potentially overlap
+///   (i.e. are ambiguous).
+/// - `false` if the paths are inherently distinct and cannot overlap.
+///
+/// # Examples
+/// ```
+/// use dioxus_fsrouter:: {Segment, are_patterns_ambiguous};
+///
+/// let segments_a = vec![Segment::Static("user".into()), Segment::Param("id".into())];
+/// let segments_b = vec![Segment::Static("user".into()), Segment::Param("name".into())];
+///
+/// assert!(are_patterns_ambiguous(&segments_a, &segments_b)); // Paths can conflict
+///
+/// let segments_c = vec![Segment::Static("user".into()), Segment::Static("profile".into())];
+/// let segments_d = vec![Segment::Static("post".into()), Segment::Static("edit".into())];
+///
+/// assert!(!are_patterns_ambiguous(&segments_c, &segments_d)); // Paths are distinct
+/// ```
+///
+/// # Notes
+/// - The ambiguity arises when both paths can match the same input path.
+/// - The function assumes that all `Static` segments are case-sensitive.
+pub fn are_patterns_ambiguous(segments_a: &[Segment], segments_b: &[Segment]) -> bool {
+    if segments_a.len() != segments_b.len() {
+        return false;
+    }
+
+    // Check segment by segment
+    for (a, b) in segments_a.iter().zip(segments_b.iter()) {
+        match (a, b) {
+            (Segment::Static(sa), Segment::Static(sb)) => {
+                if sa != sb {
+                    return false;
+                }
+            }
+            _ => continue,
+        }
+    }
+
+    true
 }
 
 /// Validate routes and panic with a detailed error message if validation fails
