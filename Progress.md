@@ -667,7 +667,7 @@ panic!("Route '{}' requires params but none provided. This is a router bug.");
 
 1. Pattern caching - Use `OnceCell` for lazy initialisation
 2. Priority sorting - Sort once per navigation (cheap)
-3. Parameter parsing - Only parse matched route
+3. Parameter parsing - Only parse the matched route
 4. Zero overhead - Enum dispatch is optimised away
 
 ---
@@ -701,11 +701,49 @@ Complete the URL matching logic and secure the basic components.
 
 ---
 
+### 3.1 Link Security
+
+---
+
+### 3.2 Fallback
+
+---
+
+### 3.3 Catch-All
+
+---
+
+### 3.4 Query Parameters
+
+---
+
+### 3.5 Alias
+
+---
+
+### 3.6 Example
+
+---
+
+### 3.7 Testing
+
+---
+
 # Phase 4: Organisation (Route Groups)
 
 ## Goal
 
 A clean way to structure routes for large applications.
+
+### 4.1 Module-Level Macro
+
+---
+
+### 4.2 Example
+
+---
+
+### 4.3 Testing
 
 ---
 
@@ -716,6 +754,20 @@ A clean way to structure routes for large applications.
 Introduce `LinkTo` component to safely navigate between routes.
 
 ---
+
+### 5.1 Routable Trait?
+
+---
+
+### 5.2 LinkTo Component
+
+---
+
+### 5.3 Example
+
+---
+
+### 5.4 Testing
 
 # Phase 6: Nested Layouts 
 
