@@ -699,6 +699,11 @@ Total: ~2 weeks for complete Phase 2 implementation
 
 Complete the URL matching logic and secure the basic components.
 
+- `Link` component should prevent accidental open redirects.
+- `Outlet` supports per-instance 404 fallbacks via props.
+- Support for `/:..segments` and `?:query` syntax.
+- Support for `#[alias]` to reduce duplication.
+
 ---
 
 ### 3.1 Link Security
