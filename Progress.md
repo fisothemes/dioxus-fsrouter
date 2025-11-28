@@ -690,3 +690,43 @@ Week 2:
 * [x] Polish & bug fixes
 
 Total: ~2 weeks for complete Phase 2 implementation
+
+---
+
+# Phase 3: Extended Matching & Safety
+
+## Goal
+
+Complete the URL matching logic and secure the basic components.
+
+---
+
+# Phase 4: Organisation (Route Groups)
+
+## Goal
+
+A clean way to structure routes for large applications.
+
+---
+
+# Phase 5: Type-Safe Navigation
+
+## Goal
+
+Introduce `LinkTo` component to safely navigate between routes.
+
+---
+
+# Phase 6: Nested Layouts 
+
+## Goal
+
+Change architecture to support hierarchical rendering.
+
+---
+
+# Phase 7: Documentation, Optimisation & Clean-up
+
+## Goal
+
+Improve documentation, performance & code quality (continuous).
