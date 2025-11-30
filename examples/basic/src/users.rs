@@ -34,7 +34,7 @@ fn UserProfile(username: String) -> Element {
         }
         div{
             id: "page-navigation",
-            NavButton {path: "/users".to_string(), text: "Back to Users"}
+            NavButton {path: "/users", text: "Back to Users"}
         }
     }
 }

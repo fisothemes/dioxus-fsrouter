@@ -28,10 +28,10 @@ fn App() -> Element {
 fn NavBar() -> Element {
     rsx! {
         nav {
-            Link { to: "/".to_string(), "Home" }
-            Link { to: "/blog".to_string(), "Blogs" }
-            Link { to: "/users".to_string(), "Users" }
-            Link { to: "/about".to_string(), "About" }
+            Link { to: "/", "Home" }
+            Link { to: "/blog", "Blogs" }
+            Link { to: "/users", "Users" }
+            Link { to: "/about", "About" }
         }
     }
 }

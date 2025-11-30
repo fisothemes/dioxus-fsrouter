@@ -11,14 +11,14 @@ fn BlogList() -> Element {
         p { "Choose a post to test parameter parsing:" }
 
         ul {
-            li { Link {  to: "/blog/featured".to_string(), strong { "Featured Post (Priority Test)" } } }
-            li { Link { to: "/blog/rust/1".to_string(), "Rust Basics (id: 1)" } }
-            li { Link { to: "/blog/dioxus/42".to_string(), "Dioxus Guide (id: 42)" } }
+            li { Link {  to: "/blog/featured", strong { "Featured Post (Priority Test)" } } }
+            li { Link { to: "/blog/rust/1", "Rust Basics (id: 1)" } }
+            li { Link { to: "/blog/dioxus/42", "Dioxus Guide (id: 42)" } }
 
             // Invalid Link (Intentionally Broken)
             li {
                 Link {
-                    to: "/blog/hacking/not-a-number".to_string(),
+                    to: "/blog/hacking/not-a-number",
                     strong {
                         style: "color: red;",
                         "Broken Link (ID is not u32)"
@@ -37,7 +37,7 @@ fn FeaturedPost() -> Element {
         p { "This is a featured blog post." }
         div {
             id: "page-navigation",
-            NavButton {path: "/blog".to_string(), text: "Back to Blog List"}
+            NavButton {path: "/blog", text: "Back to Blog List"}
         }
     }
 }
@@ -59,7 +59,7 @@ fn BlogPost(category: String, id: u32) -> Element {
             id: "page-navigation",
             NavButton {path: format!("/blog/{}/{}", category, prev_id), text: "Previous"}
             NavButton {path: format!("/blog/{}/{}", category, next_id), text: "Next"}
-            NavButton {path: "/blog".to_string(), text: "Back to Blog List"}
+            NavButton {path: "/blog", text: "Back to Blog List"}
         }
     }
 }
