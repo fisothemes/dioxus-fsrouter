@@ -58,6 +58,7 @@ pub fn Router(children: Element) -> Element {
     let current_route = use_signal(|| initial_path);
 
     // Validate routes on the first render
+    #[allow(clippy::redundant_closure)]
     let router_error = use_hook(|| validate_routes());
 
     if let Err(errors) = router_error {
