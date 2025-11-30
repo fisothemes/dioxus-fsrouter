@@ -118,7 +118,7 @@ impl ParseError {
 pub type ParseResult<T> = std::result::Result<T, ParseError>;
 
 /// Multiple validation errors collected together
-#[derive(Error, Debug, Clone)]
+#[derive(Error, Debug, Clone, PartialEq, Eq)]
 #[error(
     "Route validation failed with {count} error(s):\n{errors}",
     count = .errors_list.len(),
@@ -155,6 +155,11 @@ impl ValidationErrors {
     /// Get the errors as a string
     pub fn errors(&self) -> &[RouterError] {
         &self.errors_list
+    }
+
+    /// Return an iterator over the errors
+    pub fn iter(&self) -> impl Iterator<Item = &RouterError> {
+        self.errors_list.iter()
     }
 
     fn build_display(&self) -> String {
