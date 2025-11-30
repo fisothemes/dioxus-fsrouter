@@ -697,9 +697,9 @@ Total: ~2 weeks for complete Phase 2 implementation
 
 ## Goal
 
-Complete the URL matching logic and secure the basic components.
+Complete the URL matching logic by adding support complex patterns (Catch-alls, Query Params) and ensure the router is secure via default (Link validation) and robust (Custom Fallbacks).
 
-- `Link` component should prevent accidental open redirects.
+- `Link` component should strictly enforce internal paths to prevent open redirects.
 - `Outlet` supports per-instance 404 fallbacks via props.
 - Support for `/:..segments` and `?:query` syntax.
 - Support for `#[alias]` to reduce duplication.
@@ -708,29 +708,78 @@ Complete the URL matching logic and secure the basic components.
 
 ### 3.1 Link Security
 
+Mitigate the **Open Redirect** vulnerability by validating link targets.
+
+Checklist:
+* [x] Update `Link` props to block external links.
+* [x] Path must start with `/`.
+  * [x] Path must NOT start with `//`.
+* [x] Update `Link` render logic:
+  * [x] If path is valid: Render standard `<a>` with click handler.
+  * [x] If path is external/invalid: Render "dead" anchor (no `href`) to prevent navigation.
+
 ---
 
 ### 3.2 Fallback
+
+Allow developers to customise the "Not Found" UI per-outlet.
+
+Checklist:
+* [ ] Update `OutletProps` to accept `fallback: Option<fn() -> Element>`.
+* [ ] Update `Outlet` render logic:
+  * [ ] If `find_route` returns `None` → Render fallback.
+  * [ ] If parameter parsing fails (Result::Err) → Render fallback.
+* [ ] Implement default `NotFound` component for when no fallback is provided.
+
+
+```rust
+// Usage
+Outlet { fallback: MyCustom404 }
+```
 
 ---
 
 ### 3.3 Catch-All
 
+Support "rest of path" matching.
+
+**Syntax:** `#[route("/files/:..path")]`
+
+Checklist:
+
 ---
 
 ### 3.4 Query Parameters
+
+Support for type-safe query parameters in routes.
+
+**Syntax:** `#[route("/search?:query&:page")]` becomes `/search?q=hello&page=2`.
+
+Checklist:
 
 ---
 
 ### 3.5 Alias
 
+Allow multiple paths to map to a single component.
+
+**Syntax:** `#[alias("/user/:id")]`
+
+Checklist:
+
 ---
 
-### 3.6 Example
+### 3.6 Testing
+
+Checklists:
 
 ---
 
-### 3.7 Testing
+### 3.7 Example
+
+Incorporate all features into a simple example app.
+
+Checklists:
 
 ---
 
