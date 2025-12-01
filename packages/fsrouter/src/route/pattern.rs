@@ -119,6 +119,7 @@ impl RoutePattern {
     /// Returns Some(params) if it matches, None otherwise.
     /// Parameter values are URL-decoded.
     pub fn matches(&self, url: &str) -> Option<HashMap<String, String>> {
+        // TODO: make Map<String, enum>, where vec<string> or string variant, enum is called ParamType
         // Normalise the URL first
         let normalized = normalize_url(url);
 
@@ -153,12 +154,17 @@ impl RoutePattern {
                     params.insert(name.clone(), decoded);
                 }
                 Segment::CatchAll(name) => {
-                    // Consume all remaining segments as catch-all params
-                    let url_segments = url_segments[self.segments.len().saturating_sub(1)..]
+                    let start_index = self.segments.len().saturating_sub(1);
+
+                    let remaining_segments = &url_segments[start_index..];
+
+                    let decoded = remaining_segments
                         .iter()
-                        .map(|s| decode_url_segment(s))
-                        .collect::<Vec<_>>();
-                    params.insert(name.clone(), url_segments.join("/"));
+                        .map(|seg| decode_url_segment(seg))
+                        .collect::<Option<Vec<_>>>()?
+                        .join("/");
+
+                    params.insert(name.clone(), decoded);
                 }
             }
         }
