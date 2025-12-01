@@ -101,20 +101,14 @@ pub fn Router(children: Element) -> Element {
     }
 }
 
-/// A functional component that serves as a placeholder to render the currently active route
-/// or a "404 - Not Found" message if the route is not recognised.
+/// A placeholder component that renders the content of the currently active route.
 ///
 /// # Functionality
-/// - This component retrieves the current navigation context (`NavigationContext`)
-///   to determine the active route.
-/// - It attempts to match the current path (`path`) to a route using the `find_route` function.
-/// - If a matching route is found, it renders the associated element for that route.
-/// - If no route matches the current path, it displays a "404 - Not Found" message,
-///   indicating that no route was found for the provided path.
-///
-/// # Returns
-/// - If a matching route is found: Returns the rendered element associated with that route.
-/// - If no matching route is found: Returns a "404 - Not Found" error UI.
+/// - Matches the current path against registered routes.
+/// - If a match is found, renders the route component.
+/// - If **NO** match is found (or params fail to parse), renders the **children** of the Outlet.
+/// - If no children are provided, renders a default `NotFound` component with debug information
+///   if in debug mode.
 ///
 /// # Example
 /// ```ignore
@@ -131,8 +125,24 @@ pub fn Router(children: Element) -> Element {
 /// ```
 /// In the component tree, the `Outlet` will render the content of the currently active route
 /// or display a fallback "404 - Not Found" page if no matching route is found.
+///
+/// Pass a component as a child to `Outlet` to display it on 404s:
+/// ```ignore
+/// #[component]
+/// fn App() -> Element {
+///     rsx! {
+///         Router {
+///             NavBar { }
+///             Outlet {
+///                 div { "Oops! Page Not Found" }
+///             }
+///             Footer { }
+///         }
+///     }
+/// }
+/// ```
 #[component]
-pub fn Outlet() -> Element {
+pub fn Outlet(children: Element) -> Element {
     let nav_ctx = use_context::<NavigationContext>();
     let path = nav_ctx.current_route.read();
 
@@ -150,6 +160,10 @@ pub fn Outlet() -> Element {
                     #[cfg(not(debug_assertions))]
                     {
                         tracing::error!("No route found for: {path}");
+                    }
+
+                    if children != VNode::empty() {
+                        return children;
                     }
 
                     rsx! {
