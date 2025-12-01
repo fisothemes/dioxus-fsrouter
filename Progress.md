@@ -725,16 +725,22 @@ Checklist:
 Allow developers to customise the "Not Found" UI per-outlet.
 
 Checklist:
-* [ ] Update `OutletProps` to accept `fallback: Option<fn() -> Element>`.
-* [ ] Update `Outlet` render logic:
-  * [ ] If `find_route` returns `None` → Render fallback.
-  * [ ] If parameter parsing fails (Result::Err) → Render fallback.
-* [ ] Implement default `NotFound` component for when no fallback is provided.
-
+* [x] Update `Outlet` to accept `children: Element`.
+* [x] Update `Outlet` render logic:
+  * [x] If `find_route` returns `None` → Render children (if present) or default `NotFound`.
+  * [x] If parameter parsing fails (Result::Err) → Render children (if present) or default `NotFound`.
+* [x] Implement default `NotFound` component for when no children are provided.
 
 ```rust
 // Usage
-Outlet { fallback: MyCustom404 }
+
+// 1. Default Fallback (Built-in 404 page)
+Outlet {}
+
+// 2. Custom Fallback (Rendered if no route matches)
+Outlet {
+    div { "Oops! Page not found." }
+}
 ```
 
 ---
