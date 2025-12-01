@@ -218,13 +218,16 @@ fn Dashboard() -> Element {
 
 ```rust
 // 🚧 Planned: Props-based query parameters
-#[route("/search?:q&page:page")]
+#[route("/search?:q&:page")]
 #[component]
 fn Search(q: String, page: Option<u32>) -> Element {
     rsx! {
         div {
             "Search: {q}"
-            "Page: {page}"
+            if let Some(page) = page {
+                br { }
+                "Page: {page}"
+            }
         }
     }
 }
@@ -239,45 +242,30 @@ fn Search(q: String, page: Option<u32>) -> Element {
 ### Fallback Routes (404 Handling)
 
 ```rust
-// 🚧 Planned: Fallback routes
-#[fallback]
-#[component]
-fn NotFound() -> Element {
-    let ctx = use_route_context();
-    let nav = use_navigation();
-    
-    // Log 404s
-    use_effect(move || {
-        log_404(&ctx.url);
-    });
-    
-    rsx! { 
-        div { class: "not-found",
-            h1 { "404 - Page Not Found" }
-            p { "The page '{ctx.url}' does not exist" }
-            
-            // Smart suggestions based on URL
-            if ctx.url.starts_with("/user/") {
-                p { "Looking for a user profile?" }
-                LinkTo::<UserList> { "Browse Users" }
-            }
-            
-            button {
-                onclick: move |_| nav.go_back(),
-                "Go Back"
-            }
-            LinkTo::<Home> { "Go Home" }
-        }
+// 1. Default Fallback
+// Renders the built-in "404 - Not Found" page
+Outlet {}
+
+// 2. Custom Fallback (Inline)
+// Renders your custom content when no route matches
+Outlet {
+    div {
+        h1 { "Oops! Page not found" }
+        p { "We couldn't find the page you were looking for." }
+        Link { to: "/", "Go Home" }
     }
+}
+
+// 3. Custom Fallback (Component)
+Outlet {
+    NotFoundPage {}
 }
 ```
 
 **Capabilities:**
-* [ ] `#[fallback]` marks a component as the 404 handler
-* [ ] Only one fallback allowed per application (compile-time enforced)
-* [ ] Has lowest matching priority
-* [ ] Access attempted URL via `use_route_context()`
-* [ ] Cannot be combined with `#[route]` or `#[alias]`
+* [x] Per-Outlet fallback content (different 404s for different parts of the app).
+* [x] Renders automatically on route mismatch or parameter parsing error.
+* [x] Defaults to a built-in debug-friendly 404 page if no content is provided.
 
 ### Compile-Time Validation
 
@@ -291,23 +279,6 @@ fn NotFound() -> Element {
 #[route("/double//slash")]     // ❌ Error: No double slashes         | ✅ Implemented
 #[route("/user/:")]            // ❌ Error: Empty parameter name      | ✅ Implemented
 #[route("/user/:id/:id")]      // ❌ Error: Duplicate parameter ':id' | ✅ Implemented
-```
-
-#### Fallback Validation
-```rust
-#[fallback]
-fn NotFound() -> Element { ... }
-
-#[fallback]                    // ❌ Error: Fallback already defined by `NotFound`
-fn Error404() -> Element { ... }
-
-#[fallback]
-#[route("/404")]               // ❌ Error: Fallback cannot have explicit route path
-fn NotFound() -> Element { ... }
-
-#[fallback]
-#[alias("/404")]               // ❌ Error: Fallback cannot have aliases
-fn NotFound() -> Element { ... }
 ```
 
 #### Type Safety
