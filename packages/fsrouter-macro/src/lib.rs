@@ -1,6 +1,6 @@
+use indexmap::IndexSet as Set;
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
-use std::collections::BTreeSet;
 use syn::{FnArg, Pat, parse};
 
 /// Mark a component as a route
@@ -68,7 +68,7 @@ fn route_impl(attr: TokenStream, item: TokenStream) -> syn::Result<TokenStream> 
         ));
     }
 
-    let mut route_params = BTreeSet::new();
+    let mut route_params = Set::new();
 
     for segment in path_str.split('/') {
         // Validation: no whitespace in a path
@@ -118,7 +118,7 @@ fn route_impl(attr: TokenStream, item: TokenStream) -> syn::Result<TokenStream> 
             ));
         }
 
-        // Validation: not segment ambiguity (e.g. "/blog/id:", /blog/id:slug", "/blog/id:/:slug")
+        // Validation: no segment ambiguity (e.g. "/blog/id:", /blog/id:slug", "/blog/id:/:slug")
         if !segment.starts_with(':') && segment.contains(':') {
             return Err(syn::Error::new_spanned(
                 path,
