@@ -52,9 +52,46 @@ pub enum RouterError {
 /// Result type for router operations
 pub type Result<T> = std::result::Result<T, RouterError>;
 
-/// Errors that can occur during route parameter parsing
+/// Errors that can occur during route parsing
 #[derive(Error, Debug, Clone, PartialEq, Eq)]
 pub enum ParseError {
+    /// Route path is empty
+    #[error("Route path cannot be empty")]
+    EmptyPath,
+
+    /// Route path does not start with a slash
+    #[error("Route must start with '/' (e.g. '/{route}')")]
+    MissingLeadingSlash { route: String },
+
+    /// Route path must not have a trailing slash, except for the root path ("/")
+    #[error(
+        "Route '{route}' contains a trailing slash. \
+        Only the root path ('/') is allowed to have a trailing slash"
+    )]
+    ContainsTrailingSlash { route: String },
+
+    /// Route contains whitespace
+    #[error(
+        "Route '{route}' contains whitespace, replace with '%20' (e.g. '{fixed_route}')",
+        fixed_route = route.replace(" ", "%20")
+    )]
+    ContainsWhitespace { route: String },
+
+    /// Wildcards are not supported in route patterns (e.g. "/user/*")
+    #[error("Route '{route}' contains a wildcard (e.g. '*')")]
+    WildcardsNotSupported { route: String },
+
+    #[error("Route '{route}' contains an empty parameter (e.g. '/user/:')")]
+    EmptyParam { route: String },
+
+    /// Route path contains "//" (double slashes)
+    #[error("Route '{route}' contains '//' (double slashes)")]
+    DoubleSlash { route: String },
+
+    /// Catch-all parameter is not the last parameter in the route (e.g. "/user/:id/:..segments")
+    #[error("Route '{route}' contains a catch-all parameter that is not the last parameter")]
+    CatchAllNotLastParam { route: String },
+
     /// A required parameter is missing from the URL
     #[error("Missing required parameter '{param}' for route '{route}'")]
     MissingParam { param: String, route: String },
@@ -70,6 +107,14 @@ pub enum ParseError {
         expected_type: String,
         value: String,
         route: String,
+    },
+
+    /// Parameter is invalid (e.g. contains invalid characters)
+    #[error("Invalid parameter '{param}' for route '{route}': {reason}")]
+    InvalidParam {
+        param: String,
+        route: String,
+        reason: String,
     },
 
     /// Route requires parameters, but none were provided (internal error)
