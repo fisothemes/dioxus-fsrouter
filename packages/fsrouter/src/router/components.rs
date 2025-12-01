@@ -1,4 +1,4 @@
-use crate::errors::ValidationErrors;
+use crate::errors::{ParseError, ValidationErrors};
 use crate::route::{find_route, validate_routes};
 use crate::router::navigation::{NavigationContext, use_navigation};
 use dioxus::logger::tracing;
@@ -146,6 +146,20 @@ pub fn Outlet(children: Element) -> Element {
     let nav_ctx = use_context::<NavigationContext>();
     let path = nav_ctx.current_route.read();
 
+    let render_fallback = |parse_error: Option<ParseError>| {
+        if children != VNode::empty() {
+            return children;
+        }
+
+        rsx! {
+            NotFound{ path: path.clone() }
+
+            if let Some(parse_error) = parse_error {
+                p { strong { "Debug info: " } "{parse_error}" }
+            }
+        }
+    };
+
     match find_route(&path) {
         Some((route, params)) => {
             match route.render(Some(params)) {
@@ -162,24 +176,15 @@ pub fn Outlet(children: Element) -> Element {
                         tracing::error!("No route found for: {path}");
                     }
 
-                    if children != VNode::empty() {
-                        return children;
-                    }
-
-                    rsx! {
-                        NotFound{ path: path.clone() }
-
-                        if cfg!(debug_assertions) {
-                            p {
-                                strong { "Debug info: " }
-                                "{parse_error}"
-                            }
-                        }
-                    }
+                    render_fallback(if cfg!(debug_assertions) {
+                        Some(parse_error)
+                    } else {
+                        None
+                    })
                 }
             }
         }
-        None => rsx! { NotFound{ path: path.clone() } },
+        None => render_fallback(None),
     }
 }
 
