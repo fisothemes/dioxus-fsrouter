@@ -18,7 +18,7 @@ use crate::errors::ParseError;
 pub type StaticRouteRenderFn = fn() -> Element;
 pub type DynamicRouteRenderFn = fn(HashMap<String, String>) -> Result<Element, ParseError>;
 
-/// Function pointer types for rendering routes
+/// Render function for a route
 #[derive(Debug, Clone, Copy, Hash)]
 pub enum RenderFn {
     /// Static route with no parameters
