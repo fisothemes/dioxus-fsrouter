@@ -156,8 +156,8 @@ fn static_routes_should_have_higher_priority() {
 
 #[test]
 fn registry_should_reject_duplicate_static_routes() {
-    static P1: OnceLock<crate::RoutePattern> = OnceLock::new();
-    static P2: OnceLock<crate::RoutePattern> = OnceLock::new();
+    static P1: OnceLock<Result<crate::RoutePattern, ParseError>> = OnceLock::new();
+    static P2: OnceLock<Result<crate::RoutePattern, ParseError>> = OnceLock::new();
 
     fn dummy_render() -> Element {
         rsx! {}
@@ -193,8 +193,8 @@ fn registry_should_reject_ambiguous_routes() {
     use crate::errors::ParseResult;
     use std::collections::HashMap;
 
-    static P3: OnceLock<crate::RoutePattern> = OnceLock::new();
-    static P4: OnceLock<crate::RoutePattern> = OnceLock::new();
+    static P3: OnceLock<Result<crate::RoutePattern, ParseError>> = OnceLock::new();
+    static P4: OnceLock<Result<crate::RoutePattern, ParseError>> = OnceLock::new();
 
     fn dummy_dynamic_render(_: HashMap<String, String>) -> ParseResult<Element> {
         Ok(rsx! {})
