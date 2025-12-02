@@ -1,8 +1,7 @@
 use crate::ParseError;
-use indexmap::IndexSet as Set;
 use std::collections::HashMap;
 
-pub type RoutePriority = usize;
+pub type RoutePriority = i32;
 
 /// A segment in a route pattern
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -47,7 +46,7 @@ impl RoutePattern {
             });
         }
 
-        if path.starts_with('/') && path.ends_with('/') {
+        if path != "/" && path.ends_with('/') {
             return Err(ParseError::ContainsTrailingSlash {
                 route: path.to_string(),
             });
@@ -63,7 +62,7 @@ impl RoutePattern {
 
         let mut contains_catch_all = false;
 
-        for segment in path.split('/') {
+        for segment in path.split('/').filter(|s| !s.is_empty()) {
             if contains_catch_all {
                 return Err(ParseError::CatchAllNotLastParam {
                     route: path.to_string(),
@@ -119,52 +118,51 @@ impl RoutePattern {
     /// Returns Some(params) if it matches, None otherwise.
     /// Parameter values are URL-decoded.
     pub fn matches(&self, url: &str) -> Option<HashMap<String, String>> {
-        // TODO: make Map<String, enum>, where vec<string> or string variant, enum is called ParamType
-        // Normalise the URL first
         let normalized = normalize_url(url);
-
         let url_segments: Vec<&str> = normalized.split('/').filter(|s| !s.is_empty()).collect();
 
-        let has_catch_all = self
-            .segments
-            .last()
-            .map_or(false, |s| matches!(s, Segment::CatchAll(_)));
+        let has_catch_all = self.has_catch_all();
 
-        // Must match segments before the catch-all
-        if has_catch_all && url_segments.len() < self.segments.len().saturating_sub(1) {
-            return None;
-        // Must have the same number of segments
-        } else if !has_catch_all && url_segments.len() != self.segments.len() {
+        if has_catch_all {
+            if url_segments.len() < self.segments.len().saturating_sub(1) {
+                return None;
+            }
+        } else if url_segments.len() != self.segments.len() {
             return None;
         }
 
         let mut params = HashMap::new();
 
-        for (pattern_seg, url_seg) in self.segments.iter().zip(url_segments.iter()) {
-            match pattern_seg {
+        for (i, segment) in self.segments.iter().enumerate() {
+            match segment {
                 Segment::Static(expected) => {
-                    // Static segments must match exactly
-                    if expected != url_seg {
+                    if i >= url_segments.len() || expected != url_segments[i] {
                         return None;
                     }
                 }
                 Segment::Param(name) => {
-                    // Decode the parameter value
-                    let decoded = decode_url_segment(url_seg)?;
+                    if i >= url_segments.len() {
+                        return None;
+                    }
+                    let decoded = decode_url_segment(url_segments[i])?;
                     params.insert(name.clone(), decoded);
                 }
                 Segment::CatchAll(name) => {
-                    let start_index = self.segments.len().saturating_sub(1);
+                    if i >= url_segments.len() {
+                        params.insert(name.clone(), String::new());
+                    } else {
+                        let remaining = &url_segments[i..];
 
-                    let remaining_segments = &url_segments[start_index..];
+                        let mut joined = String::new();
+                        for (idx, part) in remaining.iter().enumerate() {
+                            if idx > 0 {
+                                joined.push('/');
+                            }
+                            joined.push_str(&decode_url_segment(part)?);
+                        }
 
-                    let decoded = remaining_segments
-                        .iter()
-                        .map(|seg| decode_url_segment(seg))
-                        .collect::<Option<Vec<_>>>()?
-                        .join("/");
-
-                    params.insert(name.clone(), decoded);
+                        params.insert(name.clone(), joined);
+                    }
                 }
             }
         }
@@ -210,6 +208,13 @@ impl RoutePattern {
     pub fn is_static(&self) -> bool {
         !self.has_params()
     }
+
+    /// Check if this pattern contains a catch-all parameter (i.e. `:..rest`)
+    pub fn has_catch_all(&self) -> bool {
+        self.segments
+            .last()
+            .map_or(false, |s| matches!(s, Segment::CatchAll(_)))
+    }
 }
 
 /// Calculate priority for this pattern using position-weighted scoring
@@ -240,10 +245,10 @@ impl RoutePattern {
 /// ```
 pub fn calculate_priority(segments: &[Segment]) -> RoutePriority {
     let mut priority = 0;
-    let len = segments.len();
+    let len = segments.len() as RoutePriority;
 
     for (index, segment) in segments.iter().enumerate() {
-        let position_weight = len - index;
+        let position_weight = len - (index as RoutePriority);
 
         let base_score = match segment {
             Segment::Static(_) => 10_000,
@@ -310,6 +315,27 @@ pub fn normalize_url(url: &str) -> String {
 /// ```
 pub fn decode_url_segment(segment: &str) -> Option<String> {
     urlencoding::decode(segment).ok().map(|s| s.into_owned())
+}
+
+/// Encodes a given URL segment to make it safe for use in a URL.
+///
+/// This function takes a string slice representing a segment of a URL,
+/// percent-encodes any characters that require encoding in a URL context,
+/// and returns the encoded string. This is particularly useful when
+/// constructing URLs to ensure that special characters in the segment
+/// (e.g. spaces, non-alphanumeric characters) are properly encoded.
+///
+/// # Example
+///
+/// ```
+/// use dioxus_fsrouter::route::pattern::encode_url_segment;
+///
+/// let segment = "Hello World!";
+/// let encoded = encode_url_segment(segment);
+/// assert_eq!(encoded, "Hello%20World%21");
+/// ```
+pub fn encode_url_segment(segment: &str) -> String {
+    urlencoding::encode(segment).into_owned()
 }
 
 #[cfg(test)]
@@ -511,8 +537,56 @@ mod tests {
     #[test]
     fn test_root_route() {
         let pattern = RoutePattern::parse("/").unwrap();
-        assert_eq!(pattern.segments.len(), 0);
+        assert_eq!(pattern.segments().len(), 0);
         assert!(pattern.matches("/").is_some());
         assert!(pattern.matches("/about").is_none());
+    }
+
+    // ===== URL Encoding Tests =====
+
+    #[test]
+    fn test_encode_url_segment() {
+        assert_eq!(encode_url_segment("Hello World!"), "Hello%20World%21");
+    }
+
+    // ===== Catch-All Tests =====
+    #[test]
+    fn test_has_catch_all_route() {
+        let pattern = RoutePattern::parse("/user/:..rest").unwrap();
+        assert!(pattern.has_catch_all());
+    }
+
+    #[test]
+    fn test_catch_all_parsing() {
+        let pattern = RoutePattern::parse("/files/:..path").unwrap();
+        assert_eq!(pattern.segments().len(), 2);
+        assert!(matches!(pattern.segments()[1], Segment::CatchAll(_)));
+        assert_eq!(pattern.param_names(), vec!["path"]);
+        assert!(pattern.has_params());
+    }
+
+    #[test]
+    fn test_catch_all_matching() {
+        let pattern = RoutePattern::parse("/files/:..path").unwrap();
+
+        // Match with multiple segments
+        let params = pattern.matches("/files/a/b/c").unwrap();
+        assert_eq!(params.get("path").unwrap(), "a/b/c");
+
+        // Match with a single segment
+        let params = pattern.matches("/files/readme.md").unwrap();
+        assert_eq!(params.get("path").unwrap(), "readme.md");
+
+        // Match with an empty segment (trailing slash normalised)
+        let params = pattern.matches("/files/").unwrap();
+        assert_eq!(params.get("path").unwrap(), "");
+    }
+
+    #[test]
+    fn test_catch_all_priority() {
+        let catch_all = RoutePattern::parse("/files/:..all").unwrap();
+        let specific = RoutePattern::parse("/files/new").unwrap();
+
+        assert!(specific.priority() > catch_all.priority());
     }
 }
