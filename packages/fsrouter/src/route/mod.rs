@@ -150,3 +150,34 @@ pub fn find_route(path: &str) -> Option<(&'static RouteInfo<'static>, HashMap<St
 
     None
 }
+
+/// Trait for types that can be parsed from a catch-all route segment (e.g. "/:..rest")
+pub trait TryFromRouteSegments: Sized {
+    fn try_from_route_segments(segments: &str) -> Result<Self, ParseError>;
+}
+
+impl TryFromRouteSegments for String {
+    fn try_from_route_segments(segments: &str) -> Result<Self, ParseError> {
+        Ok(segments.to_string())
+    }
+}
+
+impl<T: std::str::FromStr> TryFromRouteSegments for Vec<T> {
+    fn try_from_route_segments(segments: &str) -> Result<Self, ParseError> {
+        if segments.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        segments
+            .split('/')
+            .map(|s| {
+                s.parse::<T>().map_err(|_| ParseError::InvalidType {
+                    param: "catch_all".to_string(),
+                    expected_type: std::any::type_name::<Vec<T>>().to_string(),
+                    value: s.to_string(),
+                    route: "catch_all".to_string(),
+                })
+            })
+            .collect()
+    }
+}
