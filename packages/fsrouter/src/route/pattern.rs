@@ -32,7 +32,7 @@ impl RoutePattern {
     /// ```
     ///  use dioxus_fsrouter::route::pattern::RoutePattern;
     ///
-    ///  let pattern = RoutePattern::parse("/user/:id");
+    ///  let pattern = RoutePattern::parse("/user/:id").unwrap();
     ///  assert_eq!(pattern.segments().len(), 2);
     ///
     pub fn parse(path: &str) -> Result<Self, ParseError> {
