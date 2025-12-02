@@ -90,7 +90,7 @@ fn route_impl(attr: TokenStream, item: TokenStream) -> syn::Result<TokenStream> 
         if segment.contains('*') {
             return Err(syn::Error::new_spanned(
                 path,
-                "Wildcard routes ('*') are not yet supported.",
+                "Wildcard routes ('*') are not supported, use catch-all routes ('/:..segments') instead.",
             ));
         }
 
@@ -102,7 +102,7 @@ fn route_impl(attr: TokenStream, item: TokenStream) -> syn::Result<TokenStream> 
             ));
         }
 
-        // Validation: no catch-all parameters
+        // Validation: no catch-all parameters yet
         if segment.starts_with(":..") {
             return Err(syn::Error::new_spanned(
                 path,
@@ -264,8 +264,9 @@ fn route_impl(attr: TokenStream, item: TokenStream) -> syn::Result<TokenStream> 
 
         // Generate a static lock for the route pattern to ensure lifetime safety
         #[allow(non_upper_case_globals)]
-        static #pattern_static_name: ::std::sync::OnceLock<::dioxus_fsrouter::route::RoutePattern>
-            = ::std::sync::OnceLock::new();
+        static #pattern_static_name: ::std::sync::OnceLock<
+            Result<::dioxus_fsrouter::route::RoutePattern, ::dioxus_fsrouter::errors::ParseError>
+        > = ::std::sync::OnceLock::new();
 
         // Submit the route to the global inventory
         ::dioxus_fsrouter::inventory::submit! {
