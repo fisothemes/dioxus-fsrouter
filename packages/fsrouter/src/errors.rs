@@ -81,7 +81,7 @@ pub enum ParseError {
     #[error("Route '{route}' contains a wildcard (e.g. '*')")]
     WildcardsNotSupported { route: String },
 
-    #[error("Route '{route}' contains an empty parameter (e.g. '/user/:')")]
+    #[error("Route '{route}' contains an empty parameter (e.g. '/user/:' or '/files/:..')")]
     EmptyParam { route: String },
 
     /// Route path contains "//" (double slashes)
