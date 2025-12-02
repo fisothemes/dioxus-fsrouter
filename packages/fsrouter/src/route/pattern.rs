@@ -213,7 +213,7 @@ impl RoutePattern {
     pub fn has_catch_all(&self) -> bool {
         self.segments
             .last()
-            .map_or(false, |s| matches!(s, Segment::CatchAll(_)))
+            .is_some_and(|s| matches!(s, Segment::CatchAll(_)))
     }
 }
 
