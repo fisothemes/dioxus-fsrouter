@@ -13,10 +13,10 @@ pub use validate::{
     are_patterns_ambiguous, validate_route_registry, validate_routes, validate_routes_or_panic,
 };
 
-use crate::errors::ParseResult;
+use crate::errors::ParseError;
 
 pub type StaticRouteRenderFn = fn() -> Element;
-pub type DynamicRouteRenderFn = fn(HashMap<String, String>) -> ParseResult<Element>;
+pub type DynamicRouteRenderFn = fn(HashMap<String, String>) -> Result<Element, ParseError>;
 
 /// Function pointer types for rendering routes
 #[derive(Debug, Clone, Copy, Hash)]
@@ -37,7 +37,7 @@ pub struct RouteInfo<'a> {
     /// Primary route path
     path: &'a str,
     /// Parsed pattern for matching (lazy-initialised)
-    pattern: &'a OnceLock<RoutePattern>,
+    pattern: &'a OnceLock<Result<RoutePattern, ParseError>>,
     /// Component name
     component_name: &'a str,
     /// Render function
@@ -48,7 +48,7 @@ impl<'a> RouteInfo<'a> {
     /// Create new route info
     pub const fn new(
         path: &'a str,
-        pattern: &'a OnceLock<RoutePattern>,
+        pattern: &'a OnceLock<Result<RoutePattern, ParseError>>,
         component_name: &'a str,
         render_fn: RenderFn,
     ) -> Self {
@@ -66,8 +66,10 @@ impl<'a> RouteInfo<'a> {
     }
 
     /// Get the parsed pattern (lazy initialisation)
-    pub fn pattern(&self) -> &RoutePattern {
-        self.pattern.get_or_init(|| RoutePattern::parse(self.path))
+    pub fn pattern(&self) -> Result<&RoutePattern, &ParseError> {
+        self.pattern
+            .get_or_init(|| RoutePattern::parse(self.path))
+            .as_ref()
     }
 
     /// Get the component name
@@ -76,17 +78,19 @@ impl<'a> RouteInfo<'a> {
     }
 
     /// Get the priority for route matching
+    ///
+    /// If the pattern cannot be parsed, returns -1 as a fallback priority.
     pub fn priority(&self) -> RoutePriority {
-        self.pattern().priority()
+        self.pattern().map(|p| p.priority()).unwrap_or(-1)
     }
 
     /// Check if this route matches the given URL
     pub fn matches(&self, url: &str) -> Option<HashMap<String, String>> {
-        self.pattern().matches(url)
+        self.pattern().ok()?.matches(url)
     }
 
     /// Renders the component associated with this route
-    pub fn render(&self, params: Option<HashMap<String, String>>) -> ParseResult<Element> {
+    pub fn render(&self, params: Option<HashMap<String, String>>) -> Result<Element, ParseError> {
         match (&self.render_fn, params) {
             (RenderFn::Static(f), _) => Ok(f()),
             (RenderFn::WithParams(f), Some(p)) => f(p),
