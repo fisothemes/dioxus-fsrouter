@@ -80,26 +80,49 @@ impl RoutePattern {
                     route: path.to_string(),
                 });
             }
-
-            if segment.starts_with(':') && segment.ends_with(':') {
-                return Err(ParseError::EmptyParam {
-                    route: path.to_string(),
-                });
-            }
-
-            if !segment.starts_with(':') && segment.contains(':') {
-                return Err(ParseError::InvalidParam {
-                    param: segment.to_string(),
-                    route: path.to_string(),
-                    reason: "ambiguous colon usage (e.g. '/user/id:action')".to_string(),
-                });
-            }
-
             if let Some(rest) = segment.strip_prefix(":..") {
+                if rest.is_empty() {
+                    return Err(ParseError::EmptyParam {
+                        route: path.to_string(),
+                    });
+                }
+
+                if !rest.chars().all(|c| c.is_alphanumeric() || c == '_') {
+                    return Err(ParseError::InvalidParam {
+                        param: segment.to_string(),
+                        route: path.to_string(),
+                        reason: "catch-all parameter name contains non-alphanumeric characters or underscores".to_string(),
+                    });
+                }
+
                 segments.push(Segment::CatchAll(rest.to_string()));
                 contains_catch_all = true;
             } else if let Some(param) = segment.strip_prefix(':') {
-                segments.push(Segment::Param(param.to_string()))
+                if param.is_empty() {
+                    return Err(ParseError::EmptyParam {
+                        route: path.to_string(),
+                    });
+                }
+
+                if param.contains(':') {
+                    return Err(ParseError::InvalidParam {
+                        param: segment.to_string(),
+                        route: path.to_string(),
+                        reason: "ambiguous colon usage (e.g. '/user/id:action')".to_string(),
+                    });
+                }
+
+                if !param.chars().all(|c| c.is_alphanumeric() || c == '_') {
+                    return Err(ParseError::InvalidParam {
+                        param: segment.to_string(),
+                        route: path.to_string(),
+                        reason:
+                            "parameter name contains non-alphanumeric characters or underscores"
+                                .to_string(),
+                    });
+                }
+
+                segments.push(Segment::Param(param.to_string()));
             } else {
                 segments.push(Segment::Static(segment.to_string()))
             }
