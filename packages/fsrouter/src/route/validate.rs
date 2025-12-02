@@ -75,6 +75,15 @@ pub fn validate_route_registry(routes: &[&RouteInfo]) -> Result<(), ValidationEr
     let mut priority_buckets: HashMap<RoutePriority, Vec<&RouteInfo>> = HashMap::new();
 
     for route in routes {
+        // Validate Pattern Parsing
+        if let Err(parse_err) = route.pattern() {
+            validation_errors.add(RouterError::InvalidRoutePath {
+                path: route.path().to_string(),
+                reason: parse_err.to_string(),
+            });
+            continue;
+        }
+
         // Check for exact duplicate paths
         if let Some(existing_component) = seen.get(route.path()) {
             validation_errors.add(RouterError::DuplicateRoute {
@@ -82,7 +91,6 @@ pub fn validate_route_registry(routes: &[&RouteInfo]) -> Result<(), ValidationEr
                 first_component: existing_component.to_string(),
                 second_component: route.component_name().to_string(),
             });
-
             continue;
         }
 
@@ -102,10 +110,16 @@ pub fn validate_route_registry(routes: &[&RouteInfo]) -> Result<(), ValidationEr
 
         for (i, route_a) in bucket.iter().enumerate() {
             for route_b in bucket.iter().skip(i + 1) {
-                if are_patterns_ambiguous(
-                    route_a.pattern().segments(),
-                    route_b.pattern().segments(),
-                ) {
+                let pat_a = match route_a.pattern() {
+                    Ok(p) => p,
+                    Err(_) => continue,
+                };
+                let pat_b = match route_b.pattern() {
+                    Ok(p) => p,
+                    Err(_) => continue,
+                };
+
+                if are_patterns_ambiguous(pat_a.segments(), pat_b.segments()) {
                     validation_errors.add(RouterError::AmbiguousRoutes {
                         path_a: route_a.path().to_string(),
                         component_a: route_a.component_name().to_string(),
