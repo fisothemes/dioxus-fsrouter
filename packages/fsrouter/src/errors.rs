@@ -44,6 +44,9 @@ pub enum RouterError {
         component_b: String,
     },
 
+    #[error("Failed to parse route path: {0}")]
+    ParseError(#[from] ParseError),
+
     /// Route path is invalid
     #[error("Invalid route path '{path}': {reason}")]
     InvalidRoutePath { path: String, reason: String },
