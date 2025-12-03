@@ -214,6 +214,30 @@ fn Dashboard() -> Element {
 - Breadcrumb generation
 - Conditional rendering based on route type
 
+### Catch-All Routes
+
+```rust
+// 🚧 Planned: Props-based catch-all routes
+// Receive as String (raw path "a/b/c")
+#[route("/files/:..path")]
+#[component]
+fn FileViewer(path: String) -> Element {
+  rsx! { "Viewing file at: {path}" }
+}
+
+// Receive as Vec<String> (segments ["a", "b", "c"])
+#[route("/folders/:..segments")]
+#[component]
+fn FolderViewer(segments: Vec<String>) -> Element {
+  rsx! { "Depth: {segments.len()}" }
+}
+```
+
+**Capabilities:**
+* [x] Catch-all routes (`/:..name`)
+* [ ] Type conversion (String, Vec\<T>, etc.)
+* [ ] Parse failures result in 404 or fallback route
+
 ### Query Parameters
 
 ```rust
