@@ -70,7 +70,17 @@ fn route_impl(attr: TokenStream, item: TokenStream) -> syn::Result<TokenStream> 
 
     let mut route_params = Set::new();
 
-    for segment in path_str.split('/') {
+    let mut contains_catch_all = false;
+
+    for segment in path_str.split('/').filter(|s| !s.is_empty()) {
+        // Validation: catch-all must be last parameter
+        if contains_catch_all {
+            return Err(syn::Error::new_spanned(
+                path,
+                "Catch-all parameter (e.g. ':..segments') must be the last parameter in the route path",
+            ));
+        }
+
         // Validation: no whitespace in a path
         if segment.contains(' ') {
             return Err(syn::Error::new_spanned(
@@ -102,47 +112,71 @@ fn route_impl(attr: TokenStream, item: TokenStream) -> syn::Result<TokenStream> 
             ));
         }
 
-        // Validation: no catch-all parameters yet
-        if segment.starts_with(":..") {
-            return Err(syn::Error::new_spanned(
-                path,
-                "Catch-all routes (e.g. '/blog/:..segments') are not yet supported.",
-            ));
-        }
+        if let Some(rest) = segment.strip_prefix(":..") {
+            // Validation: catch-all must have a name
+            if rest.is_empty() {
+                return Err(syn::Error::new_spanned(
+                    path,
+                    "Catch-all routes (e.g. '/blog/:..segments') must have a non-empty name.",
+                ));
+            }
 
-        // Validation: no empty parameters (e.g. "/user/:" or "/file/:/edit")
-        if segment.starts_with(':') && segment.ends_with(':') {
-            return Err(syn::Error::new_spanned(
-                path,
-                "Empty parameters (e.g. '/user/:' or '/file/:/edit') are not allowed in route paths.",
-            ));
-        }
+            // Validation: catch-all names must not start with a numeric character
+            if let Some(c) = rest.chars().next()
+                && c.is_numeric()
+            {
+                return Err(syn::Error::new_spanned(
+                    path,
+                    "Catch-all parameter names must not start with a numeric character.",
+                ));
+            }
 
-        // Validation: no segment ambiguity (e.g. "/blog/id:", /blog/id:slug", "/blog/id:/:slug")
-        if !segment.starts_with(':') && segment.contains(':') {
-            return Err(syn::Error::new_spanned(
-                path,
-                format!(
-                    "Ambiguous route segment '{segment}' in route '{path_str}'.\n\
-                    Colons ':' are reserved for parameters (e.g. '/:id').\n \
-                    \n\
-                    If you meant a parameter, ensure the colon is at the start.",
-                ),
-            ));
-        }
+            // Validation: catch-all names must only contain alphanumeric characters or underscores
+            if !rest.chars().all(|c| c.is_alphanumeric() || c == '_') {
+                return Err(syn::Error::new_spanned(
+                    path,
+                    "Catch-all parameter names must only contain alphanumeric characters or underscores.",
+                ));
+            }
 
-        // Extract parameters from the route path (e.g. "id" from "/user/:id") after validation
-        if segment.starts_with(':')
-            && let Some(param) = segment.strip_prefix(':')
-            && !route_params.insert(param)
-        {
-            return Err(syn::Error::new_spanned(
-                path,
-                format!(
-                    "Duplicate parameter '{param}' in route '{path_str}'.\n\
+            contains_catch_all = true;
+        } else if let Some(param) = segment.strip_prefix(':') {
+            // Validation: no empty parameters (e.g. "/user/:" or "/file/:/edit")
+            if param.is_empty() {
+                return Err(syn::Error::new_spanned(
+                    path,
+                    "Empty parameters (e.g. '/user/:' or '/file/:/edit') are not allowed in route paths.",
+                ));
+            }
+
+            // Validation: parameter names must not start with a numeric character
+            if let Some(c) = param.chars().next()
+                && c.is_numeric()
+            {
+                return Err(syn::Error::new_spanned(
+                    path,
+                    "Parameter names must not start with a numeric character.",
+                ));
+            }
+
+            // Validation: parameter names must only contain alphanumeric characters or underscores
+            if !param.chars().all(|c| c.is_alphanumeric() || c == '_') {
+                return Err(syn::Error::new_spanned(
+                    path,
+                    "Parameter names must only contain alphanumeric characters or underscores.",
+                ));
+            }
+
+            // Validation: parameters must be unique (e.g. "/user/:id" and "/user/:name" are not allowed)
+            if !route_params.insert(param) {
+                return Err(syn::Error::new_spanned(
+                    path,
+                    format!(
+                        "Duplicate parameter '{param}' in route '{path_str}'.\n\
                             Parameters must be unique.",
-                ),
-            ));
+                    ),
+                ));
+            }
         }
     }
 
