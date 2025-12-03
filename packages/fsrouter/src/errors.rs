@@ -96,6 +96,10 @@ pub enum ParseError {
     #[error("Missing required parameter '{param}' for route '{route}'")]
     MissingParam { param: String, route: String },
 
+    /// Parameter is duplicated (e.g. "/user/:id/:id")
+    #[error("Route '{route}' contains a duplicated parameter '{param}'")]
+    DuplicatedParam { param: String, route: String },
+
     /// Failed to parse parameter to the expected type
     #[error(
         "Failed to parse parameter '{param}' as {expected_type}.\n\

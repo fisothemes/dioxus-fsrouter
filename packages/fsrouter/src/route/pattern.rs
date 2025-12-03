@@ -1,6 +1,8 @@
 use crate::ParseError;
 use std::collections::HashMap;
 
+type Set<T> = indexmap::set::IndexSet<T>;
+
 pub type RoutePriority = i32;
 
 /// A segment in a route pattern
@@ -59,6 +61,8 @@ impl RoutePattern {
         }
 
         let mut segments = Vec::new();
+
+        let mut seen_params = Set::new();
 
         let mut contains_catch_all = false;
 
@@ -132,6 +136,13 @@ impl RoutePattern {
                         reason:
                             "parameter name contains non-alphanumeric characters or underscores"
                                 .to_string(),
+                    });
+                }
+
+                if !seen_params.insert(param) {
+                    return Err(ParseError::DuplicatedParam {
+                        param: segment.to_string(),
+                        route: path.to_string(),
                     });
                 }
 
@@ -624,5 +635,57 @@ mod tests {
         let specific = RoutePattern::parse("/files/new").unwrap();
 
         assert!(specific.priority() > catch_all.priority());
+    }
+
+    // ===== ParseError Tests =====
+
+    #[test]
+    fn test_parse_error_invalid_segment() {
+        assert!(RoutePattern::parse("/user/:id:").is_err());
+    }
+
+    #[test]
+    fn test_parse_error_invalid_catch_all() {
+        assert!(RoutePattern::parse("/user/:..rest:").is_err());
+    }
+
+    #[test]
+    fn test_parse_error_invalid_param_name() {
+        assert!(RoutePattern::parse("/user/:123").is_err());
+    }
+
+    #[test]
+    fn test_parse_error_invalid_param_name_2() {
+        assert!(RoutePattern::parse("/user/:123/post/:456").is_err());
+    }
+
+    #[test]
+    fn test_parse_error_catch_must_be_last() {
+        assert!(RoutePattern::parse("/user/:..rest/post/:id").is_err());
+    }
+
+    #[test]
+    fn test_parse_error_trailing_slash() {
+        assert!(RoutePattern::parse("/user/").is_err());
+    }
+
+    #[test]
+    fn test_parse_error_empty_route() {
+        assert!(RoutePattern::parse("").is_err());
+    }
+
+    #[test]
+    fn test_parse_error_empty_param() {
+        assert!(RoutePattern::parse("/user/:").is_err());
+    }
+
+    #[test]
+    fn test_parse_error_empty_catch_all() {
+        assert!(RoutePattern::parse("/user/:..").is_err());
+    }
+
+    #[test]
+    fn test_parse_error_duplicate_param_name() {
+        assert!(RoutePattern::parse("/user/:id/:id").is_err());
     }
 }
