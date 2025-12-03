@@ -87,6 +87,17 @@ impl RoutePattern {
                     });
                 }
 
+                if let Some(c) = rest.chars().next()
+                    && c.is_numeric()
+                {
+                    return Err(ParseError::InvalidParam {
+                        param: segment.to_string(),
+                        route: path.to_string(),
+                        reason: "catch-all parameter name starts with a numeric character"
+                            .to_string(),
+                    });
+                }
+
                 if !rest.chars().all(|c| c.is_alphanumeric() || c == '_') {
                     return Err(ParseError::InvalidParam {
                         param: segment.to_string(),
@@ -104,11 +115,13 @@ impl RoutePattern {
                     });
                 }
 
-                if param.contains(':') {
+                if let Some(c) = param.chars().next()
+                    && c.is_numeric()
+                {
                     return Err(ParseError::InvalidParam {
                         param: segment.to_string(),
                         route: path.to_string(),
-                        reason: "ambiguous colon usage (e.g. '/user/id:action')".to_string(),
+                        reason: "parameter name starts with a numeric character".to_string(),
                     });
                 }
 
