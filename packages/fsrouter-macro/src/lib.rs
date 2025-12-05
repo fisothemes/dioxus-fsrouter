@@ -6,12 +6,26 @@ use syn::{FnArg, Pat, parse};
 /// Mark a component as a route
 ///
 /// # Example
+///
+/// Static routes:
 /// ```ignore
 /// #[route("/")]
 /// #[component]
-/// fn Home() -> Element {
-///     rsx! { div { "Home" } }
-/// }
+/// fn Home() -> Element { ... }
+/// ```
+///
+/// Dynamic routes:
+/// ```ignore
+/// #[route("/user/:id")]
+/// #[component]
+/// fn User(id: u32) -> Element { ... }
+/// ```
+///
+/// Catch-all routes:
+/// ```ignore
+/// #[route("/files/:..path")]
+/// #[component]
+/// fn Files(path: Vec<String>) -> Element { ... }
 /// ```
 #[proc_macro_attribute]
 pub fn route(attr: TokenStream, item: TokenStream) -> TokenStream {
@@ -139,6 +153,15 @@ fn route_impl(attr: TokenStream, item: TokenStream) -> syn::Result<TokenStream> 
                 ));
             }
 
+            if !route_params.insert(rest) {
+                return Err(syn::Error::new_spanned(
+                    path,
+                    format!(
+                        "Duplicate parameter '{rest}' in route '{path_str}'.\n\
+                            Parameters must be unique.",
+                    ),
+                ));
+            }
             contains_catch_all = true;
         } else if let Some(param) = segment.strip_prefix(':') {
             // Validation: no empty parameters (e.g. "/user/:" or "/file/:/edit")
