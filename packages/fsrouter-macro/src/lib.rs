@@ -153,6 +153,7 @@ fn route_impl(attr: TokenStream, item: TokenStream) -> syn::Result<TokenStream> 
                 ));
             }
 
+            // Validation: parameters must be unique (e.g. "/user/:id" and "/user/:name" are not allowed)
             if !route_params.insert(rest) {
                 return Err(syn::Error::new_spanned(
                     path,
