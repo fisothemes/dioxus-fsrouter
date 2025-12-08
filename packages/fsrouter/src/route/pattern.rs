@@ -292,7 +292,7 @@ impl RoutePattern {
 /// ```
 pub fn calculate_priority(segments: &[Segment]) -> RoutePriority {
     if segments.is_empty() {
-        return RoutePriority::MAX;
+        return 10_000;
     }
 
     let mut priority = 0;
