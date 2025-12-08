@@ -291,6 +291,10 @@ impl RoutePattern {
 /// /:user/:id     = 1,000×2 + 1,000×1 + 2   = 3,002
 /// ```
 pub fn calculate_priority(segments: &[Segment]) -> RoutePriority {
+    if segments.is_empty() {
+        return RoutePriority::MAX;
+    }
+
     let mut priority = 0;
     let len = segments.len() as RoutePriority;
 
