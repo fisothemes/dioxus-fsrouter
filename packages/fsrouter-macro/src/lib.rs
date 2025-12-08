@@ -265,20 +265,45 @@ fn route_impl(attr: TokenStream, item: TokenStream) -> syn::Result<TokenStream> 
         // Generate the parsing logic for each argument
         let param_parsing_logic = func_args.iter().map(|(ident, ty)| {
             let param_name = ident.to_string();
-            quote! {
-                let #ident = params
-                    .get(#param_name)
-                    .ok_or_else(|| ::dioxus_fsrouter::errors::ParseError::missing(#param_name, #path_str))?
-                    .parse::<#ty>()
-                    .map_err(|_| {
-                        let value = params.get(#param_name).unwrap().clone();
-                        ::dioxus_fsrouter::errors::ParseError::invalid_type(
-                            #param_name,
-                            stringify!(#ty),
-                            value,
-                            #path_str
-                        )
-                    })?;
+
+            if contains_catch_all {
+                return quote!{
+                    let #ident = {
+                        let raw_segment = params
+                            .get(#param_name)
+                            .map(|s| s.as_str()).unwrap_or_default();
+
+                        ::dioxus_fsrouter::route::TryFromRouteSegments::try_from_route_segments(raw_segment)
+                            .map_err(|e| match e {
+                                ::dioxus_fsrouter::errors::ParseError::InvalidType { value, expected_type, .. } =>
+                                    ::dioxus_fsrouter::errors::ParseError::invalid_type(
+                                        #param_name,
+                                        expected_type,
+                                        value,
+                                        #path_str
+                                    ),
+                                _ => e
+                            })?
+                    };
+                }
+            } else {
+                quote! {
+                    let #ident = {
+                        let param_value = params
+                            .get(#param_name)
+                            .ok_or_else(|| ::dioxus_fsrouter::errors::ParseError::missing(#param_name, #path_str))?;
+
+                        param_value.parse::<#ty>()
+                            .map_err(|_| {
+                                ::dioxus_fsrouter::errors::ParseError::invalid_type(
+                                    #param_name,
+                                    stringify!(#ty),
+                                    param_value.clone(),
+                                    #path_str
+                                )
+                            })?
+                    };
+                }
             }
         });
 
