@@ -266,7 +266,10 @@ fn route_impl(attr: TokenStream, item: TokenStream) -> syn::Result<TokenStream> 
         let param_parsing_logic = func_args.iter().map(|(ident, ty)| {
             let param_name = ident.to_string();
 
-            if contains_catch_all {
+            if contains_catch_all
+                && let Some(catch_all) = route_params.last()
+                && catch_all == &param_name
+            {
                 return quote!{
                     let #ident = {
                         let raw_segment = params
