@@ -162,6 +162,39 @@ impl TryFromRouteSegments for String {
     }
 }
 
+trait Numeric {}
+
+crate::apply_marker_trait!(Numeric, u8, u16, u32, u64, usize, i8, i16, i32, i64, isize);
+
+impl<T: Numeric + std::str::FromStr> TryFromRouteSegments for T {
+    fn try_from_route_segments(segments: &str) -> Result<Self, ParseError> {
+        segments.parse().map_err(|_| ParseError::InvalidType {
+            param: "<catch-all>".to_string(),
+            expected_type: std::any::type_name::<T>().to_string(),
+            value: segments.to_string(),
+            route: "<catch-all>".to_string(),
+        })
+    }
+}
+
+impl<T: TryFromRouteSegments> TryFromRouteSegments for Option<T> {
+    fn try_from_route_segments(segments: &str) -> Result<Self, ParseError> {
+        match T::try_from_route_segments(segments) {
+            Ok(value) => Ok(Some(value)),
+            Err(_) => Ok(None),
+        }
+    }
+}
+
+impl<T: TryFromRouteSegments> TryFromRouteSegments for Result<T, ParseError> {
+    fn try_from_route_segments(segments: &str) -> Result<Self, ParseError> {
+        match T::try_from_route_segments(segments) {
+            Ok(value) => Ok(Ok(value)),
+            Err(error) => Ok(Err(error)),
+        }
+    }
+}
+
 impl<T: std::str::FromStr> TryFromRouteSegments for Vec<T> {
     fn try_from_route_segments(segments: &str) -> Result<Self, ParseError> {
         if segments.is_empty() {
@@ -172,10 +205,10 @@ impl<T: std::str::FromStr> TryFromRouteSegments for Vec<T> {
             .split('/')
             .map(|s| {
                 s.parse::<T>().map_err(|_| ParseError::InvalidType {
-                    param: "catch_all".to_string(),
+                    param: "<catch-all>".to_string(),
                     expected_type: std::any::type_name::<Vec<T>>().to_string(),
                     value: s.to_string(),
-                    route: "catch_all".to_string(),
+                    route: "<catch-all>".to_string(),
                 })
             })
             .collect()
