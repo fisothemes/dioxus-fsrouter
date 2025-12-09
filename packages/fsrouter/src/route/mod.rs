@@ -170,7 +170,9 @@ impl TryFromRouteSegments for () {
 
 trait Numeric {}
 
-crate::apply_marker_trait!(Numeric, u8, u16, u32, u64, usize, i8, i16, i32, i64, isize);
+crate::apply_marker_trait!(
+    Numeric, u8, u16, u32, u64, u128, usize, i8, i16, i32, i64, i128, isize, f32, f64
+);
 
 impl<T: Numeric + std::str::FromStr> TryFromRouteSegments for T {
     fn try_from_route_segments(segments: &str) -> Result<Self, ParseError> {
