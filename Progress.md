@@ -752,6 +752,23 @@ Support "rest of path" matching.
 **Syntax:** `#[route("/files/:..path")]`
 
 Checklist:
+* [x] **Runtime (`pattern.rs`):**
+  * [x] Add `Segment::CatchAll(String)`.
+  * [x] Update `calculate_priority`: Catch-all gets **100 points** (Lowest priority).
+  * [x] **Fix:** Root route (`/`) explicitly assigned **10,000 points** to prevent shadowing by catch-alls.
+  * [x] Update `matches()`: Consume all remaining URL segments into a slash-joined string.
+* [x] **Type System (`route/mod.rs`):**
+  * [x] Add `TryFromRouteSegments` trait to handle parsing `String`, `Vec<String>`, etc.
+* [x] **Macro (`lib.rs`):**
+  * [x] Parse `:..name` syntax (enforced as the last segment).
+  * [x] Track specific catch-all parameter name to apply correct parsing logic.
+  * [x] Generate code calling `TryFromRouteSegments` for the catch-all argument.
+
+```rust
+// Usage
+#[route("/files/:..path")]
+fn FileViewer(path: Vec<String>) -> Element { ... }
+```
 
 ---
 
