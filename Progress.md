@@ -782,11 +782,11 @@ Checklist:
 
 ---
 
-### 3.5 Alias
+### 3.5 Redirection
 
 Allow multiple paths to map to a single component.
 
-**Syntax:** `#[alias("/user/:id")]`
+**Syntax:** `#[redirect("/user/:id")]`
 
 Checklist:
 
