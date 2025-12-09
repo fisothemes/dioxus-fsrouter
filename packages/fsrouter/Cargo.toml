@@ -16,7 +16,7 @@ dioxus-fsrouter-macro = { workspace = true }
 inventory = { workspace = true }
 thiserror = { workspace = true }
 indexmap = { workspace = true }
-urlencoding = "2.1"
+urlencoding = { workspace = true}
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 web-sys = { version = "0.3", features = ["Window", "Location", "History", "PopStateEvent"] }
