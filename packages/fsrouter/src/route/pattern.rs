@@ -38,23 +38,29 @@ impl RoutePattern {
     ///  assert_eq!(pattern.segments().len(), 2);
     ///
     pub fn parse(path: &str) -> Result<Self, ParseError> {
-        if path.is_empty() {
+        let path_part = path
+            .split_once('?')
+            .map(|p| p.0)
+            .or_else(|| path.split_once('#').map(|p| p.0))
+            .unwrap_or(path);
+
+        if path_part.is_empty() {
             return Err(ParseError::EmptyPath);
         }
 
-        if !path.starts_with('/') {
+        if !path_part.starts_with('/') {
             return Err(ParseError::MissingLeadingSlash {
                 route: path.to_string(),
             });
         }
 
-        if path != "/" && path.ends_with('/') {
+        if path_part != "/" && path_part.ends_with('/') {
             return Err(ParseError::ContainsTrailingSlash {
                 route: path.to_string(),
             });
         }
 
-        if path.contains("//") {
+        if path_part.contains("//") {
             return Err(ParseError::DoubleSlash {
                 route: path.to_string(),
             });
@@ -66,7 +72,7 @@ impl RoutePattern {
 
         let mut contains_catch_all = false;
 
-        for segment in path.split('/').filter(|s| !s.is_empty()) {
+        for segment in path_part.split('/').filter(|s| !s.is_empty()) {
             if contains_catch_all {
                 return Err(ParseError::CatchAllNotLastParam {
                     route: path.to_string(),
@@ -165,7 +171,13 @@ impl RoutePattern {
     /// Returns Some(params) if it matches, None otherwise.
     /// Parameter values are URL-decoded.
     pub fn matches(&self, url: &str) -> Option<HashMap<String, String>> {
-        let normalized = normalize_url(url);
+        let (path, query) = url
+            .split_once('?')
+            .map(|(p, q)| (p, Some(q)))
+            .unwrap_or_else(|| (url, None));
+        let (path, _) = path.split_once('#').unwrap_or((path, ""));
+
+        let normalized = normalize_url(path);
         let url_segments: Vec<&str> = normalized.split('/').filter(|s| !s.is_empty()).collect();
 
         let has_catch_all = self.has_catch_all();
@@ -199,7 +211,6 @@ impl RoutePattern {
                         params.insert(name.clone(), String::new());
                     } else {
                         let remaining = &url_segments[i..];
-
                         let mut joined = String::new();
                         for (idx, part) in remaining.iter().enumerate() {
                             if idx > 0 {
@@ -207,9 +218,26 @@ impl RoutePattern {
                             }
                             joined.push_str(&decode_url_segment(part)?);
                         }
-
                         params.insert(name.clone(), joined);
+                        break;
                     }
+                }
+            }
+        }
+
+        if let Some(query) = query {
+            for pair in query.split('&') {
+                if pair.is_empty() {
+                    continue;
+                }
+                let (key, value) = pair.split_once('=').unwrap_or((pair, ""));
+                let key = decode_url_segment(key)?;
+                let value = decode_url_segment(value)?;
+
+                if let Some(existing) = params.get_mut(&key) {
+                    *existing = format!("{}={}", existing, value);
+                } else {
+                    params.insert(key, value);
                 }
             }
         }
@@ -639,6 +667,31 @@ mod tests {
         let specific = RoutePattern::parse("/files/new").unwrap();
 
         assert!(specific.priority() > catch_all.priority());
+    }
+
+    // ===== Query Parameter Tests =====
+
+    #[test]
+    fn test_query_param_segment_parsing() {
+        let pattern = RoutePattern::parse("/search?q=rust").unwrap();
+        assert_eq!(pattern.segments.len(), 1);
+        assert_eq!(pattern.segments[0], Segment::Static("search".to_string()));
+    }
+
+    #[test]
+    fn test_query_param_matching() {
+        let pattern = RoutePattern::parse("/search?q=rust").unwrap();
+        let params = pattern.matches("/search?q=dioxus").unwrap();
+        assert_eq!(params.get("q"), Some(&"dioxus".to_string()));
+    }
+
+    #[test]
+    fn test_query_param_multiple_matching() {
+        let pattern = RoutePattern::parse("/search?q=rust&page=2").unwrap();
+        let params = pattern.matches("/search?q=dioxus&page=3").unwrap();
+
+        assert_eq!(params.get("q"), Some(&"dioxus".to_string()));
+        assert_eq!(params.get("page"), Some(&"3".to_string()));
     }
 
     // ===== ParseError Tests =====
