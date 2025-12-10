@@ -694,6 +694,13 @@ mod tests {
         assert_eq!(params.get("page"), Some(&"3".to_string()));
     }
 
+    #[test]
+    fn test_query_param_root_matching() {
+        let pattern = RoutePattern::parse("/").unwrap();
+        let params = pattern.matches("/?q=dioxus").unwrap();
+        assert_eq!(params.get("q"), Some(&"dioxus".to_string()));
+    }
+
     // ===== ParseError Tests =====
 
     #[test]
