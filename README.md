@@ -242,7 +242,7 @@ fn FolderViewer(segments: Vec<String>) -> Element {
 
 ```rust
 // 🚧 Planned: Props-based query parameters
-#[route("/search?:q&:page")]
+#[route("/search?q&page")]
 #[component]
 fn Search(q: String, page: Option<u32>) -> Element {
     rsx! {
@@ -256,6 +256,7 @@ fn Search(q: String, page: Option<u32>) -> Element {
     }
 }
 // URL: /search?q=rust&page=2 → q="rust", page=Some(2)
+// URL: /search?q=rust → q="rust", page=None
 ```
 
 **Capabilities:**

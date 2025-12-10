@@ -776,7 +776,7 @@ fn FileViewer(path: Vec<String>) -> Element { ... }
 
 Support for type-safe query parameters in routes.
 
-**Syntax:** `#[route("/search?:query&:page")]` becomes `/search?q=hello&page=2`.
+**Syntax:** `#[route("/search?q&page")]` becomes `/search?q=hello&page=2`.
 
 Checklist:
 
