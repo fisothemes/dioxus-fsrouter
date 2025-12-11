@@ -174,7 +174,7 @@ impl RoutePattern {
         let (path, query) = url
             .split_once('?')
             .map(|(p, q)| (p, Some(q)))
-            .unwrap_or_else(|| (url, None));
+            .unwrap_or((url, None));
         let (path, _) = path.split_once('#').unwrap_or((path, ""));
 
         let normalized = normalize_url(path);
