@@ -36,7 +36,13 @@ fn route_impl(attr: TokenStream, item: TokenStream) -> syn::Result<TokenStream> 
     let path = parse::<syn::LitStr>(attr)?;
     let func = parse::<syn::ItemFn>(item.clone())?;
 
-    let path_str = path.value();
+    let full_path_str = path.value();
+
+    let (path_str, query_str) = full_path_str
+        .split_once('?')
+        .map(|(p, q)| (p, Some(q)))
+        .unwrap_or((&full_path_str, None));
+
     let func_name = func.sig.ident.to_string();
     let func_ident = &func.sig.ident;
 
@@ -204,6 +210,30 @@ fn route_impl(attr: TokenStream, item: TokenStream) -> syn::Result<TokenStream> 
         }
     }
 
+    // Parse query parameters
+    if let Some(query) = query_str {
+        for segment in query.split('&') {
+            if segment.is_empty() {
+                continue;
+            }
+            let name = segment.trim();
+
+            if name.contains(':') || name.contains('?') {
+                return Err(syn::Error::new_spanned(
+                    &path,
+                    "Query parameters must not contain ':' or '?'",
+                ));
+            }
+
+            if !route_params.insert(name) {
+                return Err(syn::Error::new_spanned(
+                    &path,
+                    format!("Duplicate query parameter '{}'", name),
+                ));
+            }
+        }
+    }
+
     // Map function arguments to their types
     let mut func_args = Vec::new();
     for arg in func.sig.inputs.iter() {
@@ -270,7 +300,7 @@ fn route_impl(attr: TokenStream, item: TokenStream) -> syn::Result<TokenStream> 
                 && let Some(catch_all) = route_params.last()
                 && catch_all == &param_name
             {
-                return quote!{
+                quote!{
                     let #ident = {
                         let raw_segment = params
                             .get(#param_name)
@@ -283,7 +313,7 @@ fn route_impl(attr: TokenStream, item: TokenStream) -> syn::Result<TokenStream> 
                                         #param_name,
                                         expected_type,
                                         value,
-                                        #path_str
+                                        #full_path_str
                                     ),
                                 _ => e
                             })?
@@ -294,7 +324,7 @@ fn route_impl(attr: TokenStream, item: TokenStream) -> syn::Result<TokenStream> 
                     let #ident = {
                         let param_value = params
                             .get(#param_name)
-                            .ok_or_else(|| ::dioxus_fsrouter::errors::ParseError::missing(#param_name, #path_str))?;
+                            .ok_or_else(|| ::dioxus_fsrouter::errors::ParseError::missing(#param_name, #full_path_str))?;
 
                         param_value.parse::<#ty>()
                             .map_err(|_| {
@@ -302,7 +332,7 @@ fn route_impl(attr: TokenStream, item: TokenStream) -> syn::Result<TokenStream> 
                                     #param_name,
                                     stringify!(#ty),
                                     param_value.clone(),
-                                    #path_str
+                                    #full_path_str
                                 )
                             })?
                     };
@@ -357,7 +387,7 @@ fn route_impl(attr: TokenStream, item: TokenStream) -> syn::Result<TokenStream> 
         // Submit the route to the global inventory
         ::dioxus_fsrouter::inventory::submit! {
             ::dioxus_fsrouter::RouteInfo::new(
-                #path_str,
+                #full_path_str,
                 &#pattern_static_name,
                 concat!(module_path!(), "::", stringify!(#func_ident)),
                 #render_fn_variant
