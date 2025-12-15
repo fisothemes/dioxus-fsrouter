@@ -807,6 +807,13 @@ Allow multiple paths to map to a single component.
 
 Checklist:
 
+```rust
+#[route("/home")]
+#[redirect("/")]
+#[redirect("/start")]
+fn Home() -> Element { ... }
+```
+
 ---
 
 ### 3.6 Testing
