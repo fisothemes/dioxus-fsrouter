@@ -297,9 +297,13 @@ pub fn InternalServerErrors(errors: Option<ValidationErrors>) -> Element {
 fn get_current_path() -> String {
     #[cfg(target_family = "wasm")]
     {
-        web_sys::window()
-            .and_then(|w| w.location().pathname().ok())
-            .unwrap_or_else(|| "/".to_string())
+        if let Some(window) = web_sys::window() {
+            let location = window.location();
+            let path = location.pathname().unwrap_or_else(|_| "/".to_string());
+            let search = location.search().unwrap_or_default();
+            return format!("{}{}", path, search);
+        }
+        "/".to_string()
     }
 
     #[cfg(not(target_family = "wasm"))]
