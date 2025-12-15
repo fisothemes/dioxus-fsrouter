@@ -241,7 +241,7 @@ fn FolderViewer(segments: Vec<String>) -> Element {
 ### Query Parameters
 
 ```rust
-// 🚧 Planned: Props-based query parameters
+// ✅ Implemented: Props-based query parameters
 #[route("/search?q&page")]
 #[component]
 fn Search(q: String, page: Option<u32>) -> Element {
@@ -260,9 +260,9 @@ fn Search(q: String, page: Option<u32>) -> Element {
 ```
 
 **Capabilities:**
-* [ ] Query parameters are parsed from the URL
-* [ ] Type conversion (String, u32, i32, etc.)
-* [ ] Parse failures result in 404 or fallback route
+* [x] Query parameters are parsed from the URL
+* [x] Type conversion (String, u32, i32, etc.)
+* [x] Parse failures result in 404 or fallback route
 
 ### Fallback Routes (404 Handling)
 
