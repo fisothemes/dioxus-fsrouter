@@ -779,6 +779,23 @@ Support for type-safe query parameters in routes.
 **Syntax:** `#[route("/search?q&page")]` becomes `/search?q=hello&page=2`.
 
 Checklist:
+* [x] **Runtime (`pattern.rs`):**
+  * [x] Update `matches()` to extract and parse the query string from the URL.
+  * [x] Ensure path parameters take precedence over query parameters.
+  * [x] Fix `get_current_path` to include the query string (search) from the browser.
+* [x] **Macro (`lib.rs`):**
+  * [x] Split route string at `?` to separate a path pattern from query spec.
+  * [x] Allow and normalize query syntax (e.g., `?q`, `?:q`, `?q&page`).
+  * [x] **Type Safety:**
+    * [x] Detect `Option<T>` arguments to handle optional query parameters.
+    * [x] Generate code to parse required parameters (return 404 if missing).
+    * [x] Generate code to parse optional parameters (return `None` if missing).
+
+```rust
+// Usage
+#[route("/search?q&page")]
+fn Search(q: String, page: Option<u32>) -> Element { ... }
+```
 
 ---
 
