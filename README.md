@@ -212,12 +212,12 @@ fn Dashboard() -> Element {
 - Canonical URL redirects
 - Analytics and logging
 - Breadcrumb generation
-- Conditional rendering based on route type
+- Conditional rendering based on a route type
 
 ### Catch-All Routes
 
 ```rust
-// 🚧 Planned: Props-based catch-all routes
+// ✅ Implemented: Props-based catch-all routes
 // Receive as String (raw path "a/b/c")
 #[route("/files/:..path")]
 #[component]
@@ -235,8 +235,8 @@ fn FolderViewer(segments: Vec<String>) -> Element {
 
 **Capabilities:**
 * [x] Catch-all routes (`/:..name`)
-* [ ] Type conversion (String, Vec\<T>, etc.)
-* [ ] Parse failures result in 404 or fallback route
+* [x] Type conversion (String, Vec\<T>, etc.)
+* [x] Parse failures result in 404 or fallback route
 
 ### Query Parameters
 
