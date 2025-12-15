@@ -319,6 +319,19 @@ fn route_impl(attr: TokenStream, item: TokenStream) -> syn::Result<TokenStream> 
                             })?
                     };
                 }
+            } else if let Some(inner_ty) = get_option_inner(ty) {
+                quote! {
+                    let #ident = match params.get(#param_name) {
+                        Some(val) => Some(val.parse::<#inner_ty>()
+                            .map_err(|_| ::dioxus_fsrouter::errors::ParseError::invalid_type(
+                                #param_name,
+                                stringify!(#inner_ty),
+                                val.clone(),
+                                #full_path_str
+                            ))?),
+                        None => None,
+                    };
+                }
             } else {
                 quote! {
                     let #ident = {
@@ -395,4 +408,17 @@ fn route_impl(attr: TokenStream, item: TokenStream) -> syn::Result<TokenStream> 
         }
     }
     .into())
+}
+
+/// Helper to detect if a type is Option<T> and return T
+fn get_option_inner(ty: &syn::Type) -> Option<&syn::Type> {
+    if let syn::Type::Path(syn::TypePath { path, .. }) = ty
+        && let Some(segment) = path.segments.last()
+        && segment.ident == "Option"
+        && let syn::PathArguments::AngleBracketed(args) = &segment.arguments
+        && let Some(syn::GenericArgument::Type(inner_ty)) = args.args.first()
+    {
+        return Some(inner_ty);
+    }
+    None
 }
