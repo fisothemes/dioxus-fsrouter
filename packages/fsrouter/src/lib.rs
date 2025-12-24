@@ -20,7 +20,7 @@ pub use route::{
 pub use router::{Link, Navigation, Outlet, Router, use_navigation};
 
 pub mod prelude {
-    pub use crate::macros::route;
+    pub use crate::macros::{redirect, route};
     pub use crate::{
         Link, Navigation, Outlet, ParseError, ParseResult, RenderFn, RouteInfo, RoutePattern,
         RoutePriority, Router, RouterError, Segment, ValidationErrors, assert_route_matches,

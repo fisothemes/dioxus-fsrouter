@@ -32,6 +32,48 @@ pub fn route(attr: TokenStream, item: TokenStream) -> TokenStream {
     route_impl(attr, item).unwrap_or_else(|e| e.into_compile_error().into())
 }
 
+/// Add a redirect alias for a route
+///
+/// This attribute allows a component to respond to multiple paths. When a user visits
+/// the redirect path, the router will match this component.
+///
+/// # Rules
+/// 1. **Placement**: Must be placed **AFTER** the `#[route(...)]` attribute.
+/// 2. **Parameters**: Must define the **exact same parameters** as the main route.
+///
+/// # Examples
+///
+/// Simple alias:
+/// ```ignore
+/// #[route("/home")]
+/// #[redirect("/")]             // <-- Redirect "/" to "/home"
+/// #[component]
+/// fn Home() -> Element { ... }
+/// ```
+///
+/// Dynamic alias (renaming segments):
+/// ```ignore
+/// #[route("/user/:id")]
+/// #[redirect("/u/:id")]        // <-- Redirect "/u/:id" to "/user/:id"
+/// #[component]
+/// fn User(id: String) -> Element { ... }
+/// ```
+///
+/// Multiple redirects:
+/// ```ignore
+/// #[route("/post/:slug")]
+/// #[redirect("/article/:slug")]
+/// #[redirect("/blog/:slug")]
+/// #[component]
+/// fn Post(slug: String) -> Element { ... }
+/// ```
+#[proc_macro_attribute]
+pub fn redirect(_attr: TokenStream, _item: TokenStream) -> TokenStream {
+    quote! {
+        compile_error!("The `#[redirect(...)]` attribute must be placed AFTER `#[route(...)]` on the same function.");
+    }.into()
+}
+
 fn route_impl(attr: TokenStream, item: TokenStream) -> syn::Result<TokenStream> {
     let path = parse::<LitStr>(attr)?;
     let mut func = parse::<ItemFn>(item.clone())?;
