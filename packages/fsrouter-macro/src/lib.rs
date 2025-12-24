@@ -34,9 +34,21 @@ pub fn route(attr: TokenStream, item: TokenStream) -> TokenStream {
 
 fn route_impl(attr: TokenStream, item: TokenStream) -> syn::Result<TokenStream> {
     let path = parse::<LitStr>(attr)?;
-    let func = parse::<ItemFn>(item.clone())?;
+    let mut func = parse::<ItemFn>(item.clone())?;
     let full_path_str = path.value();
     let (route_params, contains_catch_all) = parse_and_validate_route(&path, &full_path_str)?;
+
+    let mut redirects = Vec::new();
+    let mut other_attrs = Vec::new();
+    for attr in func.attrs {
+        if attr.path().is_ident("redirect") {
+            redirects.push(attr.parse_args::<syn::LitStr>()?);
+        } else {
+            other_attrs.push(attr);
+        }
+    }
+    func.attrs = other_attrs;
+
     let func_args = extract_fn_args(&func);
 
     validate_consistency(&func, &full_path_str, &route_params, &func_args)?;
