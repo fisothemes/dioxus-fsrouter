@@ -98,6 +98,7 @@ fn route_impl(attr: TokenStream, item: TokenStream) -> syn::Result<TokenStream> 
     generate_code(
         &func,
         &full_path_str,
+        &redirects,
         &route_params,
         &func_args,
         contains_catch_all,
@@ -354,6 +355,7 @@ fn generate_param_parsing(
 fn generate_code(
     func: &ItemFn,
     full_path_str: &str,
+    redirects: &[LitStr],
     route_params: &Set<String>,
     func_args: &[(syn::Ident, &Type)],
     contains_catch_all: bool,
@@ -397,13 +399,8 @@ fn generate_code(
         )
     };
 
-    let item_ts: proc_macro2::TokenStream = item.into();
-
-    Ok(quote! {
-        #item_ts
-
-        #wrapper_func
-
+    // Generate Main Route Submission
+    let main_route_submit = quote! {
         #[allow(non_upper_case_globals)]
         static #pattern_static_name: ::std::sync::OnceLock<
             Result<::dioxus_fsrouter::route::RoutePattern, ::dioxus_fsrouter::errors::ParseError>
@@ -415,9 +412,41 @@ fn generate_code(
                 &#pattern_static_name,
                 concat!(module_path!(), "::", stringify!(#func_ident)),
                 #render_fn_variant,
-                None
+                None,
             )
         }
+    };
+
+    // Generate Redirect Submissions
+    let redirect_submits = redirects.iter().enumerate().map(|(i, r_path)| {
+        let r_path_str = r_path.value();
+        let redirect_pattern_name = format_ident!("__PATTERN_{}_REDIRECT_{}", func_name_str, i);
+
+        quote! {
+            #[allow(non_upper_case_globals)]
+            static #redirect_pattern_name: ::std::sync::OnceLock<
+                Result<::dioxus_fsrouter::route::RoutePattern, ::dioxus_fsrouter::errors::ParseError>
+            > = ::std::sync::OnceLock::new();
+
+            ::dioxus_fsrouter::inventory::submit! {
+                ::dioxus_fsrouter::RouteInfo::new(
+                    #r_path_str,
+                    &#redirect_pattern_name,
+                    concat!(module_path!(), "::", stringify!(#func_ident)),
+                    #render_fn_variant,
+                    Some(#full_path_str),
+                )
+            }
+        }
+    });
+
+    let item_ts: proc_macro2::TokenStream = quote! { #func };
+
+    Ok(quote! {
+        #item_ts
+        #wrapper_func
+        #main_route_submit
+        #(#redirect_submits)*
     }
     .into())
 }
