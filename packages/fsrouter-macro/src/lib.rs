@@ -372,7 +372,8 @@ fn generate_code(
                 #full_path_str,
                 &#pattern_static_name,
                 concat!(module_path!(), "::", stringify!(#func_ident)),
-                #render_fn_variant
+                #render_fn_variant,
+                None
             )
         }
     }

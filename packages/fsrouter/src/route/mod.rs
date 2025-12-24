@@ -53,13 +53,14 @@ impl<'a> RouteInfo<'a> {
         pattern: &'a OnceLock<Result<RoutePattern, ParseError>>,
         component_name: &'a str,
         render_fn: RenderFn,
+        canonical_path: Option<&'a str>,
     ) -> Self {
         Self {
             path,
             pattern,
             component_name,
             render_fn,
-            canonical_path: None,
+            canonical_path,
         }
     }
 

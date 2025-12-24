@@ -168,6 +168,7 @@ fn registry_should_reject_duplicate_static_routes() {
         &P1,
         "ComponentA",
         RenderFn::Static(dummy_render),
+        None,
     );
 
     let r2 = RouteInfo::new(
@@ -175,6 +176,7 @@ fn registry_should_reject_duplicate_static_routes() {
         &P2,
         "ComponentB",
         RenderFn::Static(dummy_render),
+        None,
     );
 
     let registry = vec![&r1, &r2];
@@ -205,6 +207,7 @@ fn registry_should_reject_ambiguous_routes() {
         &P3,
         "PostById",
         RenderFn::WithParams(dummy_dynamic_render),
+        None,
     );
 
     let r2 = RouteInfo::new(
@@ -212,6 +215,7 @@ fn registry_should_reject_ambiguous_routes() {
         &P4,
         "PostBySlug",
         RenderFn::WithParams(dummy_dynamic_render),
+        None,
     );
 
     let registry = vec![&r1, &r2];
