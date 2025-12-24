@@ -42,6 +42,8 @@ pub struct RouteInfo<'a> {
     component_name: &'a str,
     /// Render function
     render_fn: RenderFn,
+    /// Canonical path (if any)
+    canonical_path: Option<&'a str>,
 }
 
 impl<'a> RouteInfo<'a> {
@@ -57,6 +59,7 @@ impl<'a> RouteInfo<'a> {
             pattern,
             component_name,
             render_fn,
+            canonical_path: None,
         }
     }
 
@@ -82,6 +85,11 @@ impl<'a> RouteInfo<'a> {
     /// If the pattern cannot be parsed, returns -1 as a fallback priority.
     pub fn priority(&self) -> RoutePriority {
         self.pattern().map(|p| p.priority()).unwrap_or(-1)
+    }
+
+    /// Checks if the current route is a redirect
+    pub fn is_redirect(&self) -> bool {
+        self.canonical_path.is_some()
     }
 
     /// Check if this route matches the given URL
