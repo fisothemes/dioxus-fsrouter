@@ -93,6 +93,11 @@ impl<'a> RouteInfo<'a> {
         self.canonical_path.is_some()
     }
 
+    /// Gets the canonical path for this route, if any.
+    pub fn canonical_path(&self) -> Option<&str> {
+        self.canonical_path
+    }
+
     /// Check if this route matches the given URL
     pub fn matches(&self, url: &str) -> Option<HashMap<String, String>> {
         self.pattern().ok()?.matches(url)
