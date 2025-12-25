@@ -95,6 +95,11 @@ fn route_impl(attr: TokenStream, item: TokenStream) -> syn::Result<TokenStream> 
 
     validate_consistency(&func, &full_path_str, &route_params, &func_args)?;
 
+    for redirect_path in &redirects {
+        let (r_params, _) = parse_and_validate_route(redirect_path, &redirect_path.value())?;
+        validate_consistency(&func, &redirect_path.value(), &r_params, &func_args)?;
+    }
+
     generate_code(
         &func,
         &full_path_str,
@@ -102,7 +107,6 @@ fn route_impl(attr: TokenStream, item: TokenStream) -> syn::Result<TokenStream> 
         &route_params,
         &func_args,
         contains_catch_all,
-        item,
     )
 }
 
@@ -359,7 +363,6 @@ fn generate_code(
     route_params: &Set<String>,
     func_args: &[(syn::Ident, &Type)],
     contains_catch_all: bool,
-    item: TokenStream,
 ) -> syn::Result<TokenStream> {
     let func_ident = &func.sig.ident;
     let func_name_str = func_ident.to_string();
