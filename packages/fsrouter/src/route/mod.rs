@@ -126,6 +126,14 @@ impl<'a> RouteInfo<'a> {
     }
 }
 
+impl<'a> PartialEq for RouteInfo<'a> {
+    fn eq(&self, other: &Self) -> bool {
+        self.path == other.path
+    }
+}
+
+impl<'a> Eq for RouteInfo<'a> {}
+
 /// Get all registered routes (sorted by priority)
 ///
 /// Routes are always returned in priority order (highest first).
