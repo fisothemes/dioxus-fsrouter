@@ -33,7 +33,7 @@ fn UserProfile(id: String) -> Element {
     rsx! { div { "User: {id}" } }
 }
 
-// 🚧 Planned: Redirects
+// ✅ Implemented: Redirects
 #[route("/post/:slug")]
 #[redirect("/article/:slug")]
 #[redirect("/blog/:slug")]
@@ -42,7 +42,7 @@ fn Post(slug: String) -> Element {
     let ctx = use_route_context();
     
     // Redirect aliases to canonical URL
-    if ctx.is_alias {
+    if ctx.is_redirect() {
         let nav = use_navigation();
         use_effect(move || {
             nav.replace_url(&format!("/post/{}", slug));
@@ -157,7 +157,7 @@ fn UserPost(id: String, post_id: u32) -> Element {
     rsx! { 
         div { 
             "User {id}, Post {post_id}"
-            // 🚧 Planned: Access params from context too
+            // ✅ Implemented: Access params from context too
             p { "ID from context: {ctx.params.get(\"id\").unwrap()}" }
         }
     }
@@ -175,7 +175,7 @@ LinkTo::<UserPost> { id: "alice", post_id: 42, "View Post" }
 * [x] Automatically parsed from URL to component props
 * [x] Type conversion (String, u32, i32, etc.)
 * [x] Parse failures result in 404 or fallback route
-* [ ] Access raw params via `use_route_context().params`
+* [x] Access raw params via `use_route_context().params`
 
 ### Route Context
 
@@ -183,7 +183,7 @@ LinkTo::<UserPost> { id: "alice", post_id: 42, "View Post" }
 #[route("/dashboard")]
 #[component]
 fn Dashboard() -> Element {
-    // 🚧 Planned: Access metadata like ctx.url, ctx.pattern, etc.
+    // ✅ Implemented: Access metadata like ctx.url, ctx.pattern, etc.
     let ctx = use_route_context();
     
     // Log analytics
@@ -202,11 +202,11 @@ fn Dashboard() -> Element {
 ```
 
 **RouteContext Fields:**
-* [ ] `url: String` - The actual URL path (e.g., "/article/hello-world")
-* [ ] `pattern: &'static str` - The pattern that matched (e.g., "/article/:slug")
-* [ ] `is_alias: bool` - Whether matched via an alias
-* [ ] `component_name: &'static str` - Name of the matched component
-* [ ] `params: HashMap<String, String>` - Extracted route parameters
+* [x] `url: String` - The actual URL path (e.g., "/article/hello-world")
+* [x] `pattern: &'static str` - The pattern that matched (e.g., "/article/:slug")
+* [x] `is_redirect: bool` - Whether matched via a redirect
+* [x] `component_name: &'static str` - Name of the matched component
+* [x] `params: HashMap<String, String>` - Extracted route parameters
 
 **Use Cases:**
 - Canonical URL redirects
