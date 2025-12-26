@@ -84,8 +84,8 @@ mod admin {
 * [x] Primary route via `#[route("/path")]`
 * [x] Route parameters (`:param`) automatically parsed and passed as component props
 * [x] Component props must match route parameters (compile-time checked)
-* [ ] Multiple redirects via `#[redirect("/path")]`
-* [ ] Access route metadata via `use_route_context()`
+* [x] Multiple redirects via `#[redirect("/path")]`
+* [x] Access route metadata via `use_route_context()`
 * [ ] Grouped routes via `#[route_group("/prefix")]` on modules
 
 ### Router Setup
