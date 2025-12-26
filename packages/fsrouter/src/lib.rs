@@ -17,15 +17,17 @@ pub use route::{
     RenderFn, RouteInfo, RoutePattern, RoutePriority, Segment, are_patterns_ambiguous, find_route,
     get_routes, validate_route_registry, validate_routes, validate_routes_or_panic,
 };
-pub use router::{Link, Navigation, Outlet, Router, use_navigation};
+pub use router::{
+    Link, Navigation, Outlet, RouteContext, Router, use_navigation, use_route_context,
+};
 
 pub mod prelude {
     pub use crate::macros::{redirect, route};
     pub use crate::{
-        Link, Navigation, Outlet, ParseError, ParseResult, RenderFn, RouteInfo, RoutePattern,
-        RoutePriority, Router, RouterError, Segment, ValidationErrors, assert_route_matches,
-        assert_routes_valid, get_routes, route, use_navigation, validate_route_registry,
-        validate_routes, validate_routes_or_panic,
+        Link, Navigation, Outlet, ParseError, ParseResult, RenderFn, RouteContext, RouteInfo,
+        RoutePattern, RoutePriority, Router, RouterError, Segment, ValidationErrors,
+        assert_route_matches, assert_routes_valid, get_routes, route, use_navigation,
+        use_route_context, validate_route_registry, validate_routes, validate_routes_or_panic,
     };
     #[doc(hidden)]
     pub use inventory;
