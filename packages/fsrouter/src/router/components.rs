@@ -1,10 +1,9 @@
 use crate::errors::{ParseError, ValidationErrors};
-use crate::route::{RouteInfo, find_route, validate_routes};
+use crate::route::{find_route, validate_routes};
 use crate::router::context::RouteContext;
 use crate::router::navigation::{NavigationContext, use_navigation};
 use dioxus::logger::tracing;
 use dioxus::prelude::*;
-use std::collections::HashMap;
 
 /// The `Router` component is responsible for managing the application's routing logic. It
 /// sets up the initial route, listens to browser's navigation events, and provides a context
