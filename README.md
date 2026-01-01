@@ -34,9 +34,7 @@ fn UserProfile(id: String) -> Element {
 }
 
 // ✅ Implemented: Redirects
-#[route("/post/:slug")]
-#[redirect("/article/:slug")]
-#[redirect("/blog/:slug")]
+#[route("/post/:slug", redirect = ["/article/:slug", "/blog/:slug"])]
 #[component]
 fn Post(slug: String) -> Element {
     let ctx = use_route_context();
@@ -84,7 +82,7 @@ mod admin {
 * [x] Primary route via `#[route("/path")]`
 * [x] Route parameters (`:param`) automatically parsed and passed as component props
 * [x] Component props must match route parameters (compile-time checked)
-* [x] Multiple redirects via `#[redirect("/path")]`
+* [x] Multiple redirects via `#[route("/path", redirect = ["/alias1", "/alias2"])]`
 * [x] Access route metadata via `use_route_context()`
 * [ ] Grouped routes via `#[route_group("/prefix")]` on modules
 

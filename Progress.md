@@ -803,26 +803,63 @@ fn Search(q: String, page: Option<u32>) -> Element { ... }
 
 Allow multiple paths to map to a single component.
 
-**Syntax:** `#[redirect("/user/:id")]`
+**Syntax:** `#[route("/user/:id", redirect = ["/u/:id"])]`
 
 Checklist:
+* [x] **Macro (`lib.rs`):**
+  * [x] Parse `redirect = [...]` arguments within the `#[route]` attribute.
+  * [x] Validate consistency: Redirect parameters must match the main route's parameters exactly.
+  * [x] Generate multiple `inventory::submit!` entries:
+    * One for the main route (`canonical_path: None`).
+    * One for each redirect (`canonical_path: Some(main_route)`).
+* [x] **Runtime (`route/mod.rs`):**
+  * [x] Update `RouteInfo` to store `canonical_path`.
+  * [x] Add `is_redirect()` helper method.
 
 ```rust
-#[route("/home")]
-#[redirect("/")]
-#[redirect("/start")]
+#[route("/home", redirect = ["/", "/start"])]
 fn Home() -> Element { ... }
 ```
 
 ---
 
-### 3.6 Testing
+### 3.6 Route Context
+
+Expose metadata about the currently matched route to the component tree.
+
+Checklists:
+* [x] **Context Struct (`router/context.rs`):**
+  * [x] Define `RouteContext` with fields: `url`, `pattern`, `is_redirect`, `component_name`, and `params`.
+* [x] **Provider (`router/components.rs`):**
+  * [x] Update `Outlet` to provide `RouteContext` when a match is found.
+* [x] **Hook:**
+  * [x] Export `use_route_context()` hook for easy consumption in components.
+
+```rust
+#[route("/dashboard")]
+fn Dashboard() -> Element {
+    let ctx = use_route_context();
+    
+    rsx! {
+        p { "Current URL: {ctx.url}" }
+        if ctx.is_redirect {
+            p { "You were redirected from an alias!" }
+        }
+    }
+}
+```
+
+---
+
+### 3.7 Testing
+
+Ensure safety and correctness across phase 3 features.
 
 Checklists:
 
 ---
 
-### 3.7 Example
+### 3.8 Example
 
 Incorporate all features into a simple example app.
 

@@ -1,9 +1,14 @@
 use indexmap::IndexSet as Set;
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
-use syn::{FnArg, ItemFn, LitStr, Pat, Type, parse};
+use syn::{FnArg, ItemFn, LitStr, Pat, Token, Type, parse};
 
 /// Mark a component as a route
+///
+/// # Syntax
+/// ```ignore
+/// #[route("/path", redirect = ["/alias1", "/alias2"])]
+/// ```
 ///
 /// # Example
 ///
@@ -27,69 +32,82 @@ use syn::{FnArg, ItemFn, LitStr, Pat, Type, parse};
 /// #[component]
 /// fn Files(path: Vec<String>) -> Element { ... }
 /// ```
+///
+/// Query parameters:
+/// ```ignore
+/// #[route("/search?query&page")]
+/// #[component]
+/// fn Search(query: String, page: Option<u32>) -> Element { ... }
+/// ```
+///
+/// Routes with Redirects (Aliases):
+/// ```ignore
+/// #[route("/user/:id", redirect = ["/u/:id", "/profile/:id"])]
+/// #[component]
+/// fn User(id: String) -> Element { ... }
+/// ```
 #[proc_macro_attribute]
 pub fn route(attr: TokenStream, item: TokenStream) -> TokenStream {
     route_impl(attr, item).unwrap_or_else(|e| e.into_compile_error().into())
 }
 
-/// Add a redirect alias for a route
-///
-/// This attribute allows a component to respond to multiple paths. When a user visits
-/// the redirect path, the router will match this component.
-///
-/// # Rules
-/// 1. **Placement**: Must be placed **AFTER** the `#[route(...)]` attribute.
-/// 2. **Parameters**: Must define the **exact same parameters** as the main route.
-///
-/// # Examples
-///
-/// Simple alias:
-/// ```ignore
-/// #[route("/home")]
-/// #[redirect("/")]             // <-- Redirect "/" to "/home"
-/// #[component]
-/// fn Home() -> Element { ... }
-/// ```
-///
-/// Dynamic alias (renaming segments):
-/// ```ignore
-/// #[route("/user/:id")]
-/// #[redirect("/u/:id")]        // <-- Redirect "/u/:id" to "/user/:id"
-/// #[component]
-/// fn User(id: String) -> Element { ... }
-/// ```
-///
-/// Multiple redirects:
-/// ```ignore
-/// #[route("/post/:slug")]
-/// #[redirect("/article/:slug")]
-/// #[redirect("/blog/:slug")]
-/// #[component]
-/// fn Post(slug: String) -> Element { ... }
-/// ```
-#[proc_macro_attribute]
-pub fn redirect(_attr: TokenStream, _item: TokenStream) -> TokenStream {
-    quote! {
-        compile_error!("The `#[redirect(...)]` attribute must be placed AFTER `#[route(...)]` on the same function.");
-    }.into()
+/// Struct to hold arguments for `#[route(...)]`
+struct RouteArgs {
+    path: LitStr,
+    redirects: Vec<LitStr>,
+}
+
+impl syn::parse::Parse for RouteArgs {
+    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        let path: LitStr = input.parse()?;
+        let mut redirects = Vec::new();
+
+        // Check for optional redirect parameter
+        if input.peek(Token![,]) {
+            input.parse::<Token![,]>()?;
+
+            // Parse: redirect = [...]
+            let ident: syn::Ident = input.parse()?;
+            if ident != "redirect" {
+                return Err(syn::Error::new_spanned(
+                    ident,
+                    "Expected 'redirect' parameter",
+                ));
+            }
+
+            input.parse::<Token![=]>()?;
+
+            // Parse array of redirect paths
+            let content;
+            syn::bracketed!(content in input);
+
+            loop {
+                if content.is_empty() {
+                    break;
+                }
+                redirects.push(content.parse()?);
+
+                if content.peek(Token![,]) {
+                    content.parse::<Token![,]>()?;
+                } else {
+                    break;
+                }
+            }
+        }
+
+        Ok(RouteArgs { path, redirects })
+    }
 }
 
 fn route_impl(attr: TokenStream, item: TokenStream) -> syn::Result<TokenStream> {
-    let path = parse::<LitStr>(attr)?;
-    let mut func = parse::<ItemFn>(item.clone())?;
+    let args = parse::<RouteArgs>(attr)?;
+    let func = parse::<ItemFn>(item)?;
+
+    let path = args.path;
+    let redirects = args.redirects;
+
     let full_path_str = path.value();
     let (route_params, contains_catch_all) = parse_and_validate_route(&path, &full_path_str)?;
-
-    let mut redirects = Vec::new();
-    let mut other_attrs = Vec::new();
-    for attr in func.attrs {
-        if attr.path().is_ident("redirect") {
-            redirects.push(attr.parse_args::<syn::LitStr>()?);
-        } else {
-            other_attrs.push(attr);
-        }
-    }
-    func.attrs = other_attrs;
 
     let func_args = extract_fn_args(&func);
 

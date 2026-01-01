@@ -22,7 +22,7 @@ pub use router::{
 };
 
 pub mod prelude {
-    pub use crate::macros::{redirect, route};
+    pub use crate::macros::route;
     pub use crate::{
         Link, Navigation, Outlet, ParseError, ParseResult, RenderFn, RouteContext, RouteInfo,
         RoutePattern, RoutePriority, Router, RouterError, Segment, ValidationErrors,
