@@ -45,6 +45,48 @@ mod fixtures {
     fn TestPriorityDynamic(slug: String) -> Element {
         rsx!(div { "Dynamic Loser: {slug}" })
     }
+
+    #[crate::macros::route("/__test_catch_all/:..segments")]
+    #[component]
+    fn TestCatchAll(segments: String) -> Element {
+        rsx! { div { "Segments: {segments}" } }
+    }
+
+    #[crate::macros::route("/__test_catch_all_with_vec_params/:..segments")]
+    #[component]
+    fn TestCatchAllWithVecParams(segments: Vec<String>) -> Element {
+        rsx! { div { "Segments: {segments:?}" } }
+    }
+
+    #[crate::macros::route("/__test_query_param?q")]
+    #[component]
+    fn TestQueryParam(q: String) -> Element {
+        rsx! { div { "Query Param: {q}" } }
+    }
+
+    #[crate::macros::route("/__test_optional_query_param?q")]
+    #[component]
+    fn TestOptionalQueryParam(q: Option<String>) -> Element {
+        rsx! { div { "Optional Query Param: {q:?}" } }
+    }
+
+    #[crate::macros::route("/__test_multiple_mixed_query_params?q&page")]
+    #[component]
+    fn TestMultipleMixedQueryParams(q: String, page: Option<u32>) -> Element {
+        rsx! { div { "Query: {q}, Page {page:?}" } }
+    }
+
+    #[crate::macros::route("/__test_original", redirect = ["/__test_redirect"])]
+    #[component]
+    fn TestRedirect() -> Element {
+        rsx!(div { "Redirect Test" })
+    }
+
+    #[crate::macros::route("/__test_user_profile/:id", redirect = ["/__test_u/:id"])]
+    #[component]
+    fn TestRedirectParams(id: String) -> Element {
+        rsx!(div { "User {id}" })
+    }
 }
 
 #[test]
@@ -140,6 +182,175 @@ fn typed_params_in_route_should_match_expected_type() {
         }
         _ => panic!("Expected InvalidType error, got {:?}", res),
     }
+}
+
+#[test]
+fn catch_all_route_exists_in_registry() {
+    let routes: Vec<_> = get_routes()
+        .iter()
+        .filter(|r| r.path().contains(":..segments"))
+        .collect();
+
+    assert!(!routes.is_empty(), "Expected catch-all routes in registry");
+}
+
+#[test]
+fn catch_all_matches_multiple_segments() {
+    let (route, params) =
+        find_route("/__test_catch_all/a/b/c/d").expect("Should match catch-all route");
+
+    assert!(route.path().contains(":..segments"));
+    assert!(route.component_name().contains("TestCatchAll"));
+
+    let segments = params.get("segments").unwrap();
+    assert_eq!(segments, "a/b/c/d");
+}
+
+#[test]
+fn catch_all_matches_single_segment() {
+    let (route, params) =
+        find_route("/__test_catch_all/readme").expect("Should match catch-all route");
+
+    assert!(route.path().contains(":..segments"));
+    let segments = params.get("segments").unwrap();
+    assert_eq!(segments, "readme");
+}
+
+#[test]
+fn catch_all_matches_empty_path() {
+    let (route, params) = find_route("/__test_catch_all/").expect("Should match catch-all route");
+
+    assert!(route.path().contains(":..segments"));
+    let segments = params.get("segments").unwrap();
+    assert_eq!(segments, "");
+}
+
+#[test]
+fn catch_all_renders_with_string_type() {
+    let (route, params) =
+        find_route("/__test_catch_all/docs/guide").expect("Should match catch-all route");
+
+    let result = route.render(Some(params));
+    assert!(
+        result.is_ok(),
+        "Should successfully render with String param"
+    );
+}
+
+#[test]
+fn catch_all_renders_with_vec_string_type() {
+    let (route, params) = find_route("/__test_catch_all_with_vec_params/docs/guide/intro")
+        .expect("Should match catch-all route");
+
+    let result = route.render(Some(params));
+    assert!(
+        result.is_ok(),
+        "Should successfully render with Vec<String> param"
+    );
+}
+
+#[test]
+fn query_param_route_exists_in_registry() {
+    let routes: Vec<_> = get_routes()
+        .iter()
+        .filter(|r| r.path() == "/__test_query_param?q")
+        .collect();
+
+    assert_eq!(routes.len(), 1, "Expected query param route in registry");
+}
+
+#[test]
+fn required_query_param_present() {
+    let (route, params) =
+        find_route("/__test_query_param?q=rust").expect("Should match query param route");
+
+    assert!(route.component_name().contains("TestQueryParam"));
+    assert_eq!(params.get("q").unwrap(), "rust");
+
+    let result = route.render(Some(params));
+    assert!(result.is_ok(), "Should successfully parse required param");
+}
+
+#[test]
+fn required_query_param_missing_causes_error() {
+    let (route, params) =
+        find_route("/__test_query_param").expect("Route should match even without query");
+
+    let result = route.render(Some(params));
+    assert!(
+        result.is_err(),
+        "Should fail when required param is missing"
+    );
+
+    match result {
+        Err(ParseError::MissingParam { param, .. }) => {
+            assert_eq!(param, "q");
+        }
+        _ => panic!("Expected MissingParam error, got {:?}", result),
+    }
+}
+
+#[test]
+fn optional_query_param_present() {
+    let (route, params) = find_route("/__test_optional_query_param?q=hello")
+        .expect("Should match optional query param route");
+
+    assert_eq!(params.get("q").unwrap(), "hello");
+
+    let result = route.render(Some(params));
+    assert!(
+        result.is_ok(),
+        "Should successfully parse optional param when present"
+    );
+}
+
+#[test]
+fn optional_query_param_missing() {
+    let (route, params) = find_route("/__test_optional_query_param")
+        .expect("Should match optional query param route");
+
+    assert!(!params.contains_key("q"));
+
+    let result = route.render(Some(params));
+    assert!(
+        result.is_ok(),
+        "Should handle missing optional param gracefully"
+    );
+}
+
+#[test]
+fn redirect_main_route_exists() {
+    let (route, _) = find_route("/__test_original").expect("Main route should exist");
+
+    assert!(route.component_name().contains("TestRedirect"));
+    assert!(
+        !route.is_redirect(),
+        "Main route should not be marked as redirect"
+    );
+    assert!(
+        route.canonical_path().is_none(),
+        "Main route should have no canonical path"
+    );
+}
+
+#[test]
+fn redirect_alias_exists() {
+    let (route, _) = find_route("/__test_redirect").expect("Redirect alias should exist");
+
+    assert!(route.component_name().contains("TestRedirect"));
+    assert!(route.is_redirect(), "Redirect should be marked as redirect");
+    assert_eq!(route.canonical_path(), Some("/__test_original"));
+}
+
+#[test]
+fn redirect_with_params_main_route() {
+    let (route, params) =
+        find_route("/__test_user_profile/alice").expect("Main route should exist");
+
+    assert!(route.component_name().contains("TestRedirectParams"));
+    assert!(!route.is_redirect());
+    assert!(route.canonical_path().is_none());
+    assert_eq!(params.get("id").unwrap(), "alice");
 }
 
 #[test]
