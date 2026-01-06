@@ -14,10 +14,7 @@ pub fn NavButton(path: String, text: String) -> Element {
     let mut nav = use_navigation();
 
     rsx! {
-        button{
-            onclick: move |_| nav.push(path.clone()),
-            "{text}"
-        }
+        button { onclick: move |_| nav.push(path.clone()), "{text}" }
     }
 }
 

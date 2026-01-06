@@ -64,7 +64,7 @@ pub fn Router(children: Element) -> Element {
 
     if let Err(errors) = router_error {
         return rsx! {
-            InternalServerErrors{ errors }
+            InternalServerErrors { errors }
         };
     }
 
@@ -153,10 +153,13 @@ pub fn Outlet(children: Element) -> Element {
         }
 
         rsx! {
-            NotFound{ path: path.clone() }
+            NotFound { path: path.clone() }
 
             if let Some(parse_error) = parse_error {
-                p { strong { "Debug info: " } "{parse_error}" }
+                p {
+                    strong { "Debug info: " }
+                    "{parse_error}"
+                }
             }
         }
     };
@@ -241,10 +244,7 @@ pub fn Link(
 ) -> Element {
     if !is_internal_path(&to) {
         return rsx! {
-            a {
-                ..attributes,
-                {children}
-            }
+            a { ..attributes,{children} }
         };
     }
 
@@ -270,8 +270,7 @@ pub fn NotFound(
     path: Option<String>,
 ) -> Element {
     rsx! {
-        div {
-            ..attributes,
+        div {..attributes,
             h1 { "404 - Not Found" }
             if let Some(path) = path {
                 p { "No route found for: {path}" }

@@ -13,79 +13,105 @@ mod fixtures {
     #[crate::macros::route("/__test_home")]
     #[component]
     fn TestHome() -> Element {
-        rsx!(div { "Home" })
+        rsx!(
+            div { "Home" }
+        )
     }
 
     #[crate::macros::route("/__test_about")]
     #[component]
     fn TestAbout() -> Element {
-        rsx!(div { "About" })
+        rsx!(
+            div { "About" }
+        )
     }
 
     #[crate::macros::route("/__test_user/:username")]
     #[component]
     fn TestUser(username: String) -> Element {
-        rsx!(div { "User: {username}" })
+        rsx!(
+            div { "User: {username}" }
+        )
     }
 
     #[crate::macros::route("/__test_post/:id")]
     #[component]
     fn TestPost(id: u32) -> Element {
-        rsx!(div { "Post ID: {id}" })
+        rsx!(
+            div { "Post ID: {id}" }
+        )
     }
 
     #[crate::macros::route("/__test_priority/static")]
     #[component]
     fn TestPriorityStatic() -> Element {
-        rsx!(div { "Static Winner" })
+        rsx!(
+            div { "Static Winner" }
+        )
     }
 
     #[crate::macros::route("/__test_priority/:slug")]
     #[component]
     fn TestPriorityDynamic(slug: String) -> Element {
-        rsx!(div { "Dynamic Loser: {slug}" })
+        rsx!(
+            div { "Dynamic Loser: {slug}" }
+        )
     }
 
     #[crate::macros::route("/__test_catch_all/:..segments")]
     #[component]
     fn TestCatchAll(segments: String) -> Element {
-        rsx! { div { "Segments: {segments}" } }
+        rsx! {
+            div { "Segments: {segments}" }
+        }
     }
 
     #[crate::macros::route("/__test_catch_all_with_vec_params/:..segments")]
     #[component]
     fn TestCatchAllWithVecParams(segments: Vec<String>) -> Element {
-        rsx! { div { "Segments: {segments:?}" } }
+        rsx! {
+            div { "Segments: {segments:?}" }
+        }
     }
 
     #[crate::macros::route("/__test_query_param?q")]
     #[component]
     fn TestQueryParam(q: String) -> Element {
-        rsx! { div { "Query Param: {q}" } }
+        rsx! {
+            div { "Query Param: {q}" }
+        }
     }
 
     #[crate::macros::route("/__test_optional_query_param?q")]
     #[component]
     fn TestOptionalQueryParam(q: Option<String>) -> Element {
-        rsx! { div { "Optional Query Param: {q:?}" } }
+        rsx! {
+            div { "Optional Query Param: {q:?}" }
+        }
     }
 
     #[crate::macros::route("/__test_multiple_mixed_query_params?q&page")]
     #[component]
     fn TestMultipleMixedQueryParams(q: String, page: Option<u32>) -> Element {
-        rsx! { div { "Query: {q}, Page {page:?}" } }
+        rsx! {
+            div { "Query: {q}, Page {page:?}" }
+        }
     }
 
     #[crate::macros::route("/__test_original", redirect = ["/__test_redirect"])]
     #[component]
     fn TestRedirect() -> Element {
-        rsx!(div { "Redirect Test" })
+        rsx!(
+            div { "Redirect Test" }
+        )
     }
 
     #[crate::macros::route("/__test_user_profile/:id", redirect = ["/__test_u/:id"])]
     #[component]
     fn TestRedirectParams(id: String) -> Element {
-        rsx!(div { "User {id}" })
+        rsx!(
+            div { "User {id}" }
+        )
     }
 }
 
