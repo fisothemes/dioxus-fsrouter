@@ -49,14 +49,22 @@ fn NavBar() -> Element {
 fn Home() -> Element {
     rsx! {
         h1 { "Home" }
-        p { "Welcome to the Dioxus FsRouter Phase 2 (Route Parameters) demo!" }
+        p { "Welcome to the Dioxus FsRouter demo!" }
         p { "This example demonstrates:" }
         ul {
             li { "Static Routes (e.g., /about)" }
             li { "Dynamic Parameters (e.g., /user/:name)" }
+            li { "Catch-All Routes (e.g., /docs/:..segments)" }
+            li { "Query Parameters (e.g., /search?q)" }
             li { "Multiple Types (String, u32)" }
             li { "Priority Scoring (Static beats Dynamic)" }
         }
+        p {
+            "Try clicking the links on the navigation bar to explore the demo!"
+            br {}
+            "You can also try out the search box above!"
+        }
+        p { "This button below will print all routes registered with the router to the console:" }
         button { onclick: move |_| helpers::print_all_routes(), "Print Route Registry" }
     }
 }
@@ -95,7 +103,7 @@ fn About() -> Element {
             }
         }
         div { id: "page-navigation",
-            NavButton { path: "/contact".to_string(), text: "Contact" }
+            NavButton { path: "/contact", text: "Contact" }
         }
     }
 }
@@ -112,18 +120,19 @@ fn Contact() -> Element {
             "fisothemes/dioxus-fsrouter"
         }
         div { id: "page-navigation",
-            NavButton { path: "/about".to_string(), text: "Back to About" }
+            NavButton { path: "/about", text: "Back to About" }
         }
     }
 }
 
 #[component]
 fn NotFound() -> Element {
+    let nav = use_navigation();
     rsx! {
         div { style: "text-align: center; padding: 4rem; color: #444;",
             h1 { "404" }
             p { "Oops! We couldn't find the page you're looking for." }
-            NavButton { path: "/".to_string(), text: "Go back home" }
+            button { onclick: move |_| nav.go_back(), "Go back" }
         }
     }
 }

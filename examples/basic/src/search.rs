@@ -3,17 +3,19 @@ use dioxus_fsrouter::prelude::*;
 
 #[component]
 pub fn SearchBox() -> Element {
+    use dioxus_fsrouter::route::pattern::encode_url_segment;
+
     let mut search_query = use_signal(|| String::new());
     let mut nav = use_navigation();
     let mut perform_search = move || {
-        let q = search_query();
+        let q = encode_url_segment(&search_query());
         if !q.is_empty() {
             nav.push(format!("/search?q={}", q));
         }
     };
 
     rsx! {
-        div { style: "display: flex; gap: 0.5rem;",
+        div { class: "search-box",
             input {
                 placeholder: "Search...",
                 value: "{search_query}",
