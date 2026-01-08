@@ -1,4 +1,5 @@
 use crate::helpers::NavButton;
+use crate::helpers::capitalize_first;
 use dioxus::prelude::*;
 use dioxus_fsrouter::prelude::*;
 
@@ -15,7 +16,7 @@ fn Docs(segments: Vec<String>) -> Element {
                 " / "
                 "{path_str}"
             }
-            h1 { "Docs: {title}" }
+            h1 { "Docs: {capitalize_first(&title)}" }
             p {
                 "You are currently viewing the documentation for "
                 code { "{path_str}" }
