@@ -48,7 +48,7 @@ fn Search(q: String) -> Element {
                     Link { to: "/docs/results/{q}", "Documentation: {q}" }
                 }
                 li {
-                    Link { to: "/blog/article/{q}", "Blog post for {q}" }
+                    Link { to: "/blog/{q}/1", "Blog post for {q}" }
                 }
             }
         }
