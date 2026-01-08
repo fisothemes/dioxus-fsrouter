@@ -856,6 +856,10 @@ fn Dashboard() -> Element {
 Ensure safety and correctness across phase 3 features.
 
 Checklists:
+* [x] Add catch-all unit tests.
+* [x] Add query parameter unit tests.
+* [x] Add integration tests for redirection.
+* [x] Add integration tests for route context.
 
 ---
 
@@ -864,6 +868,12 @@ Checklists:
 Incorporate all features into a simple example app.
 
 Checklists:
+* [x] Update the `Home` component to mention phase 3 features on `basic/main.rs`.
+* [x] Add home page redirection route `/home`.
+* [x] Add custom `NotFound` component for the example app on `basic/main.rs`.
+* [x] Add search box (`SearchBox`) to nav-bar.
+  * [x] Queries on search box are passed to the `Search` component to demostrate query parameters.
+  * [x] On the search page, display links to the documentation page (`Docs` component) to demostrate catch-all route parameters.
 
 ---
 
