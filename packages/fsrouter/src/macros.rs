@@ -66,3 +66,29 @@ macro_rules! assert_route_matches {
         }
     };
 }
+
+/// This macro is designed to simplify the process of implementing marker traits.
+///
+/// # Example
+/// ```rust
+/// use dioxus_fsrouter::apply_marker_trait;
+///
+/// trait MyMarkerTrait {}
+///
+/// struct Struct1;
+/// struct Struct2;
+/// struct Struct3;
+/// struct Struct4;
+///
+/// // Implement marker trait for a single type
+/// apply_marker_trait!(MyMarkerTrait, Struct1);
+///
+/// // Implement marker trait for multiple types
+/// apply_marker_trait!(MyMarkerTrait, Struct2, Struct3, Struct4);
+/// ```
+#[macro_export]
+macro_rules! apply_marker_trait {
+    ($trait_name:ident, $($type_name:ty), *) => {
+        $(impl $trait_name for $type_name {})*
+    };
+}

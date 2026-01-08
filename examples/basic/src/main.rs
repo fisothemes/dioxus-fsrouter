@@ -1,8 +1,11 @@
 mod blog;
+mod docs;
 mod helpers;
+mod search;
 mod users;
 
 use helpers::NavButton;
+use search::SearchBox;
 
 use dioxus::prelude::*;
 use dioxus_fsrouter::prelude::*;
@@ -16,10 +19,14 @@ fn main() {
 #[component]
 fn App() -> Element {
     rsx! {
-        document::Stylesheet{ href: CSS }
+        document::Stylesheet { href: CSS }
         Router {
             NavBar {}
-            main { Outlet {} }
+            main {
+                Outlet {
+                    NotFound {} // Custom fallback component.
+                }
+            }
         }
     }
 }
@@ -28,30 +35,37 @@ fn App() -> Element {
 fn NavBar() -> Element {
     rsx! {
         nav {
-            Link { to: "/".to_string(), "Home" }
-            Link { to: "/blog".to_string(), "Blogs" }
-            Link { to: "/users".to_string(), "Users" }
-            Link { to: "/about".to_string(), "About" }
+            Link { to: "/", "Home" }
+            Link { to: "/blog", "Blogs" }
+            Link { to: "/users", "Users" }
+            Link { to: "/about", "About" }
+            SearchBox {}
         }
     }
 }
 
-#[route("/")]
+#[route("/", redirect = ["/home"])]
 #[component]
 fn Home() -> Element {
     rsx! {
-        h1{ "Home" }
-        p { "Welcome to the Dioxus FsRouter Phase 2 (Route Parameters) demo!" }
+        h1 { "Home" }
+        p { "Welcome to the Dioxus FsRouter demo!" }
         p { "This example demonstrates:" }
         ul {
             li { "Static Routes (e.g., /about)" }
             li { "Dynamic Parameters (e.g., /user/:name)" }
+            li { "Catch-All Routes (e.g., /docs/:..segments)" }
+            li { "Query Parameters (e.g., /search?q)" }
             li { "Multiple Types (String, u32)" }
             li { "Priority Scoring (Static beats Dynamic)" }
         }
-        button {
-            onclick: move |_| helpers::print_all_routes(), "Print Route Registry"
+        p {
+            "Try clicking the links on the navigation bar to explore the demo!"
+            br {}
+            "You can also try out the search box above!"
         }
+        p { "This button below will print all routes registered with the router to the console:" }
+        button { onclick: move |_| helpers::print_all_routes(), "Print Route Registry" }
     }
 }
 
@@ -59,7 +73,7 @@ fn Home() -> Element {
 #[component]
 fn About() -> Element {
     rsx! {
-        h1{ "About" }
+        h1 { "About" }
         p {
             "This is a simple, attribute-based router for Dioxus applications that provides "
             br { "component-based routing with compile-time safety, automatic route registration, " }
@@ -67,15 +81,29 @@ fn About() -> Element {
         }
         p { "The core principles of this router are:" }
         ul {
-            li { b { "Component-First: " } "Routes are attached directly to components via attributes" }
-            li { b { "Type-Safe: " } "All navigation is type-checked at compile time" }
-            li { b { "Minimal Boilerplate: " } "No enums, no manual registration, no string-based routing" }
-            li { b { "Compile-Time Validation: " } "Invalid URLs caught at compile time" }
-            li { b { "Auto-Discovery: " } "Routes automatically register themselves via global inventory" }
+            li {
+                b { "Component-First: " }
+                "Routes are attached directly to components via attributes"
+            }
+            li {
+                b { "Type-Safe: " }
+                "All navigation is type-checked at compile time"
+            }
+            li {
+                b { "Minimal Boilerplate: " }
+                "No enums, no manual registration, no string-based routing"
+            }
+            li {
+                b { "Compile-Time Validation: " }
+                "Invalid URLs caught at compile time"
+            }
+            li {
+                b { "Auto-Discovery: " }
+                "Routes automatically register themselves via global inventory"
+            }
         }
-        div{
-            id: "page-navigation",
-            NavButton {path: "/contact".to_string(), text: "Contact"}
+        div { id: "page-navigation",
+            NavButton { path: "/contact", text: "Contact" }
         }
     }
 }
@@ -91,9 +119,20 @@ fn Contact() -> Element {
             target: "_blank",
             "fisothemes/dioxus-fsrouter"
         }
-        div{
-            id: "page-navigation",
-            NavButton {path: "/about".to_string(), text: "Back to About"}
+        div { id: "page-navigation",
+            NavButton { path: "/about", text: "Back to About" }
+        }
+    }
+}
+
+#[component]
+fn NotFound() -> Element {
+    let nav = use_navigation();
+    rsx! {
+        div { style: "text-align: center; padding: 4rem; color: #444;",
+            h1 { "404" }
+            p { "Oops! We couldn't find the page you're looking for." }
+            button { onclick: move |_| nav.go_back(), "Go back" }
         }
     }
 }

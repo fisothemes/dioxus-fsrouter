@@ -1,5 +1,8 @@
-use crate::route::{find_route, validate_routes_or_panic};
+use crate::errors::{ParseError, ValidationErrors};
+use crate::route::{find_route, validate_routes};
+use crate::router::context::RouteContext;
 use crate::router::navigation::{NavigationContext, use_navigation};
+use dioxus::logger::tracing;
 use dioxus::prelude::*;
 
 /// The `Router` component is responsible for managing the application's routing logic. It
@@ -18,7 +21,8 @@ use dioxus::prelude::*;
 ///    - It creates a reactive signal (`current_route`) to store and manage the current route's state.
 ///
 /// 2. **Route Validation**:
-///    - During the first render, the `Router` executes a validation function (`validate_routes_or_panic`) to ensure all defined routes are valid. If the validation fails, it panics to prevent the application from proceeding.
+///    - During the first render, the `Router` executes a validation function (`validate_routes`) to ensure all defined routes are valid.
+///    - If validation fails, it renders the `InternalServerErrors` component to prevent the application from proceeding with invalid routes.
 ///
 /// 3. **Browser Back/Forward Navigation Handling (WASM targets only)**:
 ///    - A `popstate` event listener is registered to detect when users navigate via browser back/forward buttons.
@@ -55,9 +59,14 @@ pub fn Router(children: Element) -> Element {
     let current_route = use_signal(|| initial_path);
 
     // Validate routes on the first render
-    use_hook(|| {
-        validate_routes_or_panic();
-    });
+    #[allow(clippy::redundant_closure)]
+    let router_error = use_hook(|| validate_routes());
+
+    if let Err(errors) = router_error {
+        return rsx! {
+            InternalServerErrors { errors }
+        };
+    }
 
     // Set up a popstate listener for browser back/forward buttons
     #[cfg(target_family = "wasm")]
@@ -93,20 +102,14 @@ pub fn Router(children: Element) -> Element {
     }
 }
 
-/// A functional component that serves as a placeholder to render the currently active route
-/// or a "404 - Not Found" message if the route is not recognised.
+/// A placeholder component that renders the content of the currently active route.
 ///
 /// # Functionality
-/// - This component retrieves the current navigation context (`NavigationContext`)
-///   to determine the active route.
-/// - It attempts to match the current path (`path`) to a route using the `find_route` function.
-/// - If a matching route is found, it renders the associated element for that route.
-/// - If no route matches the current path, it displays a "404 - Not Found" message,
-///   indicating that no route was found for the provided path.
-///
-/// # Returns
-/// - If a matching route is found: Returns the rendered element associated with that route.
-/// - If no matching route is found: Returns a "404 - Not Found" error UI.
+/// - Matches the current path against registered routes.
+/// - If a match is found, renders the route component.
+/// - If **NO** match is found (or params fail to parse), renders the **children** of the Outlet.
+/// - If no children are provided, renders a default `NotFound` component with debug information
+///   if in debug mode.
 ///
 /// # Example
 /// ```ignore
@@ -123,49 +126,77 @@ pub fn Router(children: Element) -> Element {
 /// ```
 /// In the component tree, the `Outlet` will render the content of the currently active route
 /// or display a fallback "404 - Not Found" page if no matching route is found.
+///
+/// Pass a component as a child to `Outlet` to display it on 404s:
+/// ```ignore
+/// #[component]
+/// fn App() -> Element {
+///     rsx! {
+///         Router {
+///             NavBar { }
+///             Outlet {
+///                 div { "Oops! Page Not Found" }
+///             }
+///             Footer { }
+///         }
+///     }
+/// }
+/// ```
 #[component]
-pub fn Outlet() -> Element {
+pub fn Outlet(children: Element) -> Element {
     let nav_ctx = use_context::<NavigationContext>();
     let path = nav_ctx.current_route.read();
 
+    let render_fallback = |parse_error: Option<ParseError>| {
+        if children != VNode::empty() {
+            return children;
+        }
+
+        rsx! {
+            NotFound { path: path.clone() }
+
+            if let Some(parse_error) = parse_error {
+                p {
+                    strong { "Debug info: " }
+                    "{parse_error}"
+                }
+            }
+        }
+    };
+
     match find_route(&path) {
         Some((route, params)) => {
+            use_context_provider(|| RouteContext {
+                url: path.clone(),
+                pattern: route.path(),
+                is_redirect: route.is_redirect(),
+                component_name: route.component_name(),
+                params: params.clone(),
+            });
+
             match route.render(Some(params)) {
                 Ok(element) => element,
                 Err(parse_error) => {
                     // Parse error - show 404 or fallback
                     #[cfg(debug_assertions)]
                     {
-                        eprintln!("Parameter parse error: {}", parse_error);
+                        tracing::error!("Parameter parse error: {}", parse_error);
                     }
 
                     #[cfg(not(debug_assertions))]
                     {
-                        eprintln!("Parameter parse error (showing 404): {}", parse_error);
+                        tracing::error!("No route found for: {path}");
                     }
 
-                    rsx! {
-                        div {
-                            h1 { "404 - Not Found" }
-                            p { "No route found for: {path}" }
-                        }
-
-                        if cfg!(debug_assertions) {
-                            p {
-                                strong { "Debug info:" }
-                                "{parse_error}"
-                            }
-                        }
-                    }
+                    render_fallback(if cfg!(debug_assertions) {
+                        Some(parse_error)
+                    } else {
+                        None
+                    })
                 }
             }
         }
-        None => rsx! {
-            div {
-                h1 { "404 - Not Found" }
-                p { "No route found for: {path}" }
-            }
-        },
+        None => render_fallback(None),
     }
 }
 
@@ -174,6 +205,7 @@ pub fn Outlet() -> Element {
 /// routing in web applications.
 ///
 /// # Parameters
+/// - `attributes`: Extended attributes to apply to the internal anchor element.
 /// - `to`: A `String` specifying the target URL or route to navigate to when the hyperlink is clicked.
 /// - `children`: The `Element` representing the content of the link (e.g. text or nested elements).
 ///
@@ -191,18 +223,31 @@ pub fn Outlet() -> Element {
 /// #[component]
 /// fn App() -> Element {
 ///     rsx! {
-///         Link {
-///             to: "/about".to_string(),
-///             "About Us"
-///         }
+///         Link { to: "/about", "About Us" }
 ///     }
 /// }
 /// ```
 ///
 /// In the above example, clicking the "About Us" link will programmatically navigate to the `/about` route
 /// without triggering a full page reload.
+///
+/// # Security Note
+/// This component will not work correctly if the `to` route is an external URL (e.g. `https://example.com`).
+/// In this case, you should use a standard `a { ... }` element instead.
+///
+/// This is to prevent Open Redirect vulnerabilities.
 #[component]
-pub fn Link(to: String, children: Element) -> Element {
+pub fn Link(
+    #[props(extends = GlobalAttributes, extends = a)] attributes: Vec<Attribute>,
+    to: String,
+    children: Element,
+) -> Element {
+    if !is_internal_path(&to) {
+        return rsx! {
+            a { ..attributes,{children} }
+        };
+    }
+
     let mut nav = use_navigation();
 
     rsx! {
@@ -212,7 +257,46 @@ pub fn Link(to: String, children: Element) -> Element {
                 e.prevent_default();
                 nav.push(to.clone());
             },
+            ..attributes,
             {children}
+        }
+    }
+}
+
+/// Default 404 page to display when no matching route is found.
+#[component]
+pub fn NotFound(
+    #[props(extends = GlobalAttributes, extends = div)] attributes: Vec<Attribute>,
+    path: Option<String>,
+) -> Element {
+    rsx! {
+        div {..attributes,
+            h1 { "404 - Not Found" }
+            if let Some(path) = path {
+                p { "No route found for: {path}" }
+            }
+        }
+    }
+}
+
+/// Renders an "Internal Server Error" page with optional validation error details.
+#[component]
+pub fn InternalServerErrors(errors: Option<ValidationErrors>) -> Element {
+    rsx! {
+        div {
+            style: "padding: 2rem; background-color: #fff;  font-family: sans-serif;",
+            height: "100vh",
+            background_color: "white",
+            color: "black",
+            h1 { "500 - Internal Server Error" }
+            if cfg!(debug_assertions) && let Some(errors) = errors {
+                p { "The router encountered validation errors:" }
+                ol {
+                    for error in errors.errors() {
+                        li { "{error}" }
+                    }
+                }
+            }
         }
     }
 }
@@ -221,13 +305,25 @@ pub fn Link(to: String, children: Element) -> Element {
 fn get_current_path() -> String {
     #[cfg(target_family = "wasm")]
     {
-        web_sys::window()
-            .and_then(|w| w.location().pathname().ok())
-            .unwrap_or_else(|| "/".to_string())
+        if let Some(window) = web_sys::window() {
+            let location = window.location();
+            let path = location.pathname().unwrap_or_else(|_| "/".to_string());
+            let search = location.search().unwrap_or_default();
+            return format!("{}{}", path, search);
+        }
+        "/".to_string()
     }
 
     #[cfg(not(target_family = "wasm"))]
     {
         "/".to_string()
     }
+}
+
+/// Validates that a path is safe for internal navigation.
+///
+/// Returns `true` only if the path starts with `/` and is NOT protocol-relative (`//`).
+pub fn is_internal_path(path: &str) -> bool {
+    let trimmed = path.trim_start();
+    trimmed.starts_with('/') && !trimmed.starts_with("//")
 }

@@ -1,6 +1,9 @@
+use crate::ParseError;
 use std::collections::HashMap;
 
-pub type RoutePriority = usize;
+type Set<T> = indexmap::set::IndexSet<T>;
+
+pub type RoutePriority = i32;
 
 /// A segment in a route pattern
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -9,6 +12,8 @@ pub enum Segment {
     Static(String),
     /// A parameter segment like ":id" or ":slug"
     Param(String),
+    /// A catch-all segment like ":..segments" (matches rest of path)
+    CatchAll(String),
 }
 
 /// A parsed route pattern
@@ -29,29 +34,135 @@ impl RoutePattern {
     /// ```
     ///  use dioxus_fsrouter::route::pattern::RoutePattern;
     ///
-    ///  let pattern = RoutePattern::parse("/user/:id");
+    ///  let pattern = RoutePattern::parse("/user/:id").unwrap();
     ///  assert_eq!(pattern.segments().len(), 2);
     ///
-    pub fn parse(path: &str) -> Self {
-        let segments = path
-            .split('/')
-            .filter(|s| !s.is_empty())
-            .map(|s| {
-                if let Some(param) = s.strip_prefix(':') {
-                    Segment::Param(param.to_string())
-                } else {
-                    Segment::Static(s.to_string())
-                }
-            })
-            .collect::<Vec<_>>();
+    pub fn parse(path: &str) -> Result<Self, ParseError> {
+        let path_part = path
+            .split_once('?')
+            .map(|p| p.0)
+            .or_else(|| path.split_once('#').map(|p| p.0))
+            .unwrap_or(path);
 
-        let priority = calculate_priority(&segments);
-
-        Self {
-            raw: path.to_string(),
-            segments,
-            priority,
+        if path_part.is_empty() {
+            return Err(ParseError::EmptyPath);
         }
+
+        if !path_part.starts_with('/') {
+            return Err(ParseError::MissingLeadingSlash {
+                route: path.to_string(),
+            });
+        }
+
+        if path_part != "/" && path_part.ends_with('/') {
+            return Err(ParseError::ContainsTrailingSlash {
+                route: path.to_string(),
+            });
+        }
+
+        if path_part.contains("//") {
+            return Err(ParseError::DoubleSlash {
+                route: path.to_string(),
+            });
+        }
+
+        let mut segments = Vec::new();
+
+        let mut seen_params = Set::new();
+
+        let mut contains_catch_all = false;
+
+        for segment in path_part.split('/').filter(|s| !s.is_empty()) {
+            if contains_catch_all {
+                return Err(ParseError::CatchAllNotLastParam {
+                    route: path.to_string(),
+                });
+            }
+
+            if segment.contains(' ') {
+                return Err(ParseError::ContainsWhitespace {
+                    route: path.to_string(),
+                });
+            }
+
+            if segment.contains('*') {
+                return Err(ParseError::WildcardsNotSupported {
+                    route: path.to_string(),
+                });
+            }
+            if let Some(rest) = segment.strip_prefix(":..") {
+                if rest.is_empty() {
+                    return Err(ParseError::EmptyParam {
+                        route: path.to_string(),
+                    });
+                }
+
+                if let Some(c) = rest.chars().next()
+                    && c.is_numeric()
+                {
+                    return Err(ParseError::InvalidParam {
+                        param: segment.to_string(),
+                        route: path.to_string(),
+                        reason: "catch-all parameter name starts with a numeric character"
+                            .to_string(),
+                    });
+                }
+
+                if !rest.chars().all(|c| c.is_alphanumeric() || c == '_') {
+                    return Err(ParseError::InvalidParam {
+                        param: segment.to_string(),
+                        route: path.to_string(),
+                        reason: "catch-all parameter name contains non-alphanumeric characters or underscores".to_string(),
+                    });
+                }
+
+                segments.push(Segment::CatchAll(rest.to_string()));
+                contains_catch_all = true;
+            } else if let Some(param) = segment.strip_prefix(':') {
+                if param.is_empty() {
+                    return Err(ParseError::EmptyParam {
+                        route: path.to_string(),
+                    });
+                }
+
+                if let Some(c) = param.chars().next()
+                    && c.is_numeric()
+                {
+                    return Err(ParseError::InvalidParam {
+                        param: segment.to_string(),
+                        route: path.to_string(),
+                        reason: "parameter name starts with a numeric character".to_string(),
+                    });
+                }
+
+                if !param.chars().all(|c| c.is_alphanumeric() || c == '_') {
+                    return Err(ParseError::InvalidParam {
+                        param: segment.to_string(),
+                        route: path.to_string(),
+                        reason:
+                            "parameter name contains non-alphanumeric characters or underscores"
+                                .to_string(),
+                    });
+                }
+
+                if !seen_params.insert(param) {
+                    return Err(ParseError::DuplicatedParam {
+                        param: segment.to_string(),
+                        route: path.to_string(),
+                    });
+                }
+
+                segments.push(Segment::Param(param.to_string()));
+            } else {
+                segments.push(Segment::Static(segment.to_string()))
+            }
+        }
+
+        Ok(Self {
+            raw: path.to_string(),
+            priority: calculate_priority(&segments),
+            segments,
+        })
     }
 
     /// Check if this pattern matches the given URL path
@@ -60,30 +171,73 @@ impl RoutePattern {
     /// Returns Some(params) if it matches, None otherwise.
     /// Parameter values are URL-decoded.
     pub fn matches(&self, url: &str) -> Option<HashMap<String, String>> {
-        // Normalise the URL first
-        let normalized = normalize_url(url);
+        let (path, query) = url
+            .split_once('?')
+            .map(|(p, q)| (p, Some(q)))
+            .unwrap_or((url, None));
+        let (path, _) = path.split_once('#').unwrap_or((path, ""));
 
+        let normalized = normalize_url(path);
         let url_segments: Vec<&str> = normalized.split('/').filter(|s| !s.is_empty()).collect();
 
-        // Must have the same number of segments
-        if url_segments.len() != self.segments.len() {
+        let has_catch_all = self.has_catch_all();
+
+        if has_catch_all {
+            if url_segments.len() < self.segments.len().saturating_sub(1) {
+                return None;
+            }
+        } else if url_segments.len() != self.segments.len() {
             return None;
         }
 
         let mut params = HashMap::new();
 
-        for (pattern_seg, url_seg) in self.segments.iter().zip(url_segments.iter()) {
-            match pattern_seg {
+        for (i, segment) in self.segments.iter().enumerate() {
+            match segment {
                 Segment::Static(expected) => {
-                    // Static segments must match exactly
-                    if expected != url_seg {
+                    if i >= url_segments.len() || expected != url_segments[i] {
                         return None;
                     }
                 }
                 Segment::Param(name) => {
-                    // Decode the parameter value
-                    let decoded = decode_url_segment(url_seg)?;
+                    if i >= url_segments.len() {
+                        return None;
+                    }
+                    let decoded = decode_url_segment(url_segments[i])?;
                     params.insert(name.clone(), decoded);
+                }
+                Segment::CatchAll(name) => {
+                    if i >= url_segments.len() {
+                        params.insert(name.clone(), String::new());
+                    } else {
+                        let remaining = &url_segments[i..];
+                        let mut joined = String::new();
+                        for (idx, part) in remaining.iter().enumerate() {
+                            if idx > 0 {
+                                joined.push('/');
+                            }
+                            joined.push_str(&decode_url_segment(part)?);
+                        }
+                        params.insert(name.clone(), joined);
+                        break;
+                    }
+                }
+            }
+        }
+
+        if let Some(query) = query {
+            for pair in query.split('&') {
+                if pair.is_empty() {
+                    continue;
+                }
+                let (key, value) = pair.split_once('=').unwrap_or((pair, ""));
+                let key = decode_url_segment(key)?;
+                let value = decode_url_segment(value)?;
+
+                if let Some(existing) = params.get_mut(&key) {
+                    *existing = format!("{}={}", existing, value);
+                } else {
+                    params.insert(key, value);
                 }
             }
         }
@@ -112,6 +266,7 @@ impl RoutePattern {
             .iter()
             .filter_map(|seg| match seg {
                 Segment::Param(name) => Some(name.as_str()),
+                Segment::CatchAll(name) => Some(name.as_str()),
                 Segment::Static(_) => None,
             })
             .collect()
@@ -121,12 +276,19 @@ impl RoutePattern {
     pub fn has_params(&self) -> bool {
         self.segments
             .iter()
-            .any(|seg| matches!(seg, Segment::Param(_)))
+            .any(|seg| matches!(seg, Segment::Param(_) | Segment::CatchAll(_)))
     }
 
     /// Check if this pattern is static (no parameters)
     pub fn is_static(&self) -> bool {
         !self.has_params()
+    }
+
+    /// Check if this pattern contains a catch-all parameter (i.e. `:..rest`)
+    pub fn has_catch_all(&self) -> bool {
+        self.segments
+            .last()
+            .is_some_and(|s| matches!(s, Segment::CatchAll(_)))
     }
 }
 
@@ -135,6 +297,7 @@ impl RoutePattern {
 /// Rules:
 /// - Static segments: 10,000 points (base)
 /// - Dynamic segments: 1,000 points (base)
+/// - Catch-all segments: 100 points (base)
 /// - Position multiplier: Earlier segments have more weight
 /// - Length bonus: +1 per segment (tiebreaker)
 ///
@@ -144,6 +307,7 @@ impl RoutePattern {
 ///     position_weight = (total_segments - i)
 ///     if Static: score += 10,000 × position_weight
 ///     if Dynamic: score += 1,000 × position_weight
+///     if Catch-all: score += 100 × position_weight
 /// score += total_segments
 /// ```
 ///
@@ -151,18 +315,24 @@ impl RoutePattern {
 /// ```text
 /// /user/new      = 10,000×2 + 10,000×1 + 2 = 30,002
 /// /user/:id      = 10,000×2 + 1,000×1 + 2  = 21,002
-/// /:type/:id     = 1,000×2 + 1,000×1 + 2   = 3,002
+/// /user/:..rest  = 10,000×2 + 100×1 + 2    = 20,102
+/// /:user/:id     = 1,000×2 + 1,000×1 + 2   = 3,002
 /// ```
 pub fn calculate_priority(segments: &[Segment]) -> RoutePriority {
+    if segments.is_empty() {
+        return 10_000;
+    }
+
     let mut priority = 0;
-    let len = segments.len();
+    let len = segments.len() as RoutePriority;
 
     for (index, segment) in segments.iter().enumerate() {
-        let position_weight = len - index;
+        let position_weight = len - (index as RoutePriority);
 
         let base_score = match segment {
             Segment::Static(_) => 10_000,
             Segment::Param(_) => 1_000,
+            Segment::CatchAll(_) => 100,
         };
 
         priority += base_score * position_weight;
@@ -226,6 +396,27 @@ pub fn decode_url_segment(segment: &str) -> Option<String> {
     urlencoding::decode(segment).ok().map(|s| s.into_owned())
 }
 
+/// Encodes a given URL segment to make it safe for use in a URL.
+///
+/// This function takes a string slice representing a segment of a URL,
+/// percent-encodes any characters that require encoding in a URL context,
+/// and returns the encoded string. This is particularly useful when
+/// constructing URLs to ensure that special characters in the segment
+/// (e.g. spaces, non-alphanumeric characters) are properly encoded.
+///
+/// # Example
+///
+/// ```
+/// use dioxus_fsrouter::route::pattern::encode_url_segment;
+///
+/// let segment = "Hello World!";
+/// let encoded = encode_url_segment(segment);
+/// assert_eq!(encoded, "Hello%20World%21");
+/// ```
+pub fn encode_url_segment(segment: &str) -> String {
+    urlencoding::encode(segment).into_owned()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -234,7 +425,7 @@ mod tests {
 
     #[test]
     fn test_parse_static_route() {
-        let pattern = RoutePattern::parse("/about");
+        let pattern = RoutePattern::parse("/about").unwrap();
         assert_eq!(pattern.segments.len(), 1);
         assert_eq!(pattern.segments[0], Segment::Static("about".to_string()));
         assert!(pattern.is_static());
@@ -242,7 +433,7 @@ mod tests {
 
     #[test]
     fn test_parse_single_param() {
-        let pattern = RoutePattern::parse("/user/:id");
+        let pattern = RoutePattern::parse("/user/:id").unwrap();
         assert_eq!(pattern.segments.len(), 2);
         assert_eq!(pattern.segments[0], Segment::Static("user".to_string()));
         assert_eq!(pattern.segments[1], Segment::Param("id".to_string()));
@@ -251,7 +442,7 @@ mod tests {
 
     #[test]
     fn test_parse_multiple_params() {
-        let pattern = RoutePattern::parse("/user/:user_id/post/:post_id");
+        let pattern = RoutePattern::parse("/user/:user_id/post/:post_id").unwrap();
         assert_eq!(pattern.segments.len(), 4);
         assert_eq!(pattern.param_names(), vec!["user_id", "post_id"]);
     }
@@ -260,7 +451,7 @@ mod tests {
 
     #[test]
     fn test_match_static_route() {
-        let pattern = RoutePattern::parse("/about");
+        let pattern = RoutePattern::parse("/about").unwrap();
         assert!(pattern.matches("/about").is_some());
         assert!(pattern.matches("/contact").is_none());
         assert!(pattern.matches("/about/more").is_none());
@@ -268,7 +459,7 @@ mod tests {
 
     #[test]
     fn test_match_with_params() {
-        let pattern = RoutePattern::parse("/user/:id");
+        let pattern = RoutePattern::parse("/user/:id").unwrap();
 
         let params = pattern.matches("/user/123").unwrap();
         assert_eq!(params.get("id"), Some(&"123".to_string()));
@@ -279,7 +470,7 @@ mod tests {
 
     #[test]
     fn test_match_multiple_params() {
-        let pattern = RoutePattern::parse("/user/:user_id/post/:post_id");
+        let pattern = RoutePattern::parse("/user/:user_id/post/:post_id").unwrap();
 
         let params = pattern.matches("/user/alice/post/42").unwrap();
         assert_eq!(params.get("user_id"), Some(&"alice".to_string()));
@@ -288,14 +479,14 @@ mod tests {
 
     #[test]
     fn test_match_with_trailing_slash() {
-        let pattern = RoutePattern::parse("/about");
+        let pattern = RoutePattern::parse("/about").unwrap();
         // Trailing slashes are normalised away
         assert!(pattern.matches("/about/").is_some());
     }
 
     #[test]
     fn test_match_with_query_string() {
-        let pattern = RoutePattern::parse("/search");
+        let pattern = RoutePattern::parse("/search").unwrap();
         // Query strings are removed during normalisation
         assert!(pattern.matches("/search?q=rust").is_some());
     }
@@ -304,28 +495,28 @@ mod tests {
 
     #[test]
     fn test_decode_simple_param() {
-        let pattern = RoutePattern::parse("/user/:name");
+        let pattern = RoutePattern::parse("/user/:name").unwrap();
         let params = pattern.matches("/user/john").unwrap();
         assert_eq!(params.get("name"), Some(&"john".to_string()));
     }
 
     #[test]
     fn test_decode_url_encoded_param() {
-        let pattern = RoutePattern::parse("/user/:name");
+        let pattern = RoutePattern::parse("/user/:name").unwrap();
         let params = pattern.matches("/user/john%20doe").unwrap();
         assert_eq!(params.get("name"), Some(&"john doe".to_string()));
     }
 
     #[test]
     fn test_decode_special_chars() {
-        let pattern = RoutePattern::parse("/search/:query");
+        let pattern = RoutePattern::parse("/search/:query").unwrap();
         let params = pattern.matches("/search/rust%26web").unwrap();
         assert_eq!(params.get("query"), Some(&"rust&web".to_string()));
     }
 
     #[test]
     fn test_decode_percent_sign() {
-        let pattern = RoutePattern::parse("/discount/:amount");
+        let pattern = RoutePattern::parse("/discount/:amount").unwrap();
         let params = pattern.matches("/discount/50%25").unwrap();
         assert_eq!(params.get("amount"), Some(&"50%".to_string()));
     }
@@ -334,9 +525,9 @@ mod tests {
 
     #[test]
     fn test_priority_calculation() {
-        let static_route = RoutePattern::parse("/about");
-        let dynamic_route = RoutePattern::parse("/user/:id");
-        let mixed_route = RoutePattern::parse("/user/posts/:id");
+        let static_route = RoutePattern::parse("/about").unwrap();
+        let dynamic_route = RoutePattern::parse("/user/:id").unwrap();
+        let mixed_route = RoutePattern::parse("/user/posts/:id").unwrap();
 
         // /about: 10,000×1 + 1 = 10,001
         assert_eq!(static_route.priority, 10_001);
@@ -351,14 +542,14 @@ mod tests {
     #[test]
     fn test_priority_ordering() {
         let routes = vec![
-            RoutePattern::parse("/user/:id"),       // 21,002
-            RoutePattern::parse("/user/new"),       // 30,002
-            RoutePattern::parse("/user/:id/edit"),  // 32,003
-            RoutePattern::parse("/user/new/posts"), // 40,003
+            RoutePattern::parse("/user/:id").unwrap(),       // 21,002
+            RoutePattern::parse("/user/new").unwrap(),       // 30,002
+            RoutePattern::parse("/user/:id/edit").unwrap(),  // 32,003
+            RoutePattern::parse("/user/new/posts").unwrap(), // 40,003
         ];
 
         let mut sorted = routes.clone();
-        sorted.sort_by(|a, b| b.priority.cmp(&a.priority));
+        sorted.sort_by(|a, b| b.priority().cmp(&a.priority()));
 
         // Check order (the highest priority first)
         assert_eq!(sorted[0].raw, "/user/new/posts"); // 40,003
@@ -369,11 +560,11 @@ mod tests {
 
     #[test]
     fn test_static_beats_dynamic_at_same_position() {
-        let static_route = RoutePattern::parse("/user/new");
-        let dynamic_route = RoutePattern::parse("/user/:id");
+        let static_route = RoutePattern::parse("/user/new").unwrap();
+        let dynamic_route = RoutePattern::parse("/user/:id").unwrap();
 
         // Both have 2 segments, but static should win
-        assert!(static_route.priority > dynamic_route.priority);
+        assert!(static_route.priority() > dynamic_route.priority());
     }
 
     // ===== URL Normalization Tests =====
@@ -424,9 +615,141 @@ mod tests {
 
     #[test]
     fn test_root_route() {
-        let pattern = RoutePattern::parse("/");
-        assert_eq!(pattern.segments.len(), 0);
+        let pattern = RoutePattern::parse("/").unwrap();
+        assert_eq!(pattern.segments().len(), 0);
         assert!(pattern.matches("/").is_some());
         assert!(pattern.matches("/about").is_none());
+    }
+
+    // ===== URL Encoding Tests =====
+
+    #[test]
+    fn test_encode_url_segment() {
+        assert_eq!(encode_url_segment("Hello World!"), "Hello%20World%21");
+    }
+
+    // ===== Catch-All Tests =====
+    #[test]
+    fn test_has_catch_all_route() {
+        let pattern = RoutePattern::parse("/user/:..rest").unwrap();
+        assert!(pattern.has_catch_all());
+    }
+
+    #[test]
+    fn test_catch_all_parsing() {
+        let pattern = RoutePattern::parse("/files/:..path").unwrap();
+        assert_eq!(pattern.segments().len(), 2);
+        assert!(matches!(pattern.segments()[1], Segment::CatchAll(_)));
+        assert_eq!(pattern.param_names(), vec!["path"]);
+        assert!(pattern.has_params());
+    }
+
+    #[test]
+    fn test_catch_all_matching() {
+        let pattern = RoutePattern::parse("/files/:..path").unwrap();
+
+        // Match with multiple segments
+        let params = pattern.matches("/files/a/b/c").unwrap();
+        assert_eq!(params.get("path").unwrap(), "a/b/c");
+
+        // Match with a single segment
+        let params = pattern.matches("/files/readme.md").unwrap();
+        assert_eq!(params.get("path").unwrap(), "readme.md");
+
+        // Match with an empty segment (trailing slash normalised)
+        let params = pattern.matches("/files/").unwrap();
+        assert_eq!(params.get("path").unwrap(), "");
+    }
+
+    #[test]
+    fn test_catch_all_priority() {
+        let catch_all = RoutePattern::parse("/files/:..all").unwrap();
+        let specific = RoutePattern::parse("/files/new").unwrap();
+
+        assert!(specific.priority() > catch_all.priority());
+    }
+
+    // ===== Query Parameter Tests =====
+
+    #[test]
+    fn test_query_param_segment_parsing() {
+        let pattern = RoutePattern::parse("/search?q=rust").unwrap();
+        assert_eq!(pattern.segments.len(), 1);
+        assert_eq!(pattern.segments[0], Segment::Static("search".to_string()));
+    }
+
+    #[test]
+    fn test_query_param_matching() {
+        let pattern = RoutePattern::parse("/search?q=rust").unwrap();
+        let params = pattern.matches("/search?q=dioxus").unwrap();
+        assert_eq!(params.get("q"), Some(&"dioxus".to_string()));
+    }
+
+    #[test]
+    fn test_query_param_multiple_matching() {
+        let pattern = RoutePattern::parse("/search?q=rust&page=2").unwrap();
+        let params = pattern.matches("/search?q=dioxus&page=3").unwrap();
+
+        assert_eq!(params.get("q"), Some(&"dioxus".to_string()));
+        assert_eq!(params.get("page"), Some(&"3".to_string()));
+    }
+
+    #[test]
+    fn test_query_param_root_matching() {
+        let pattern = RoutePattern::parse("/").unwrap();
+        let params = pattern.matches("/?q=dioxus").unwrap();
+        assert_eq!(params.get("q"), Some(&"dioxus".to_string()));
+    }
+
+    // ===== ParseError Tests =====
+
+    #[test]
+    fn test_parse_error_invalid_segment() {
+        assert!(RoutePattern::parse("/user/:id:").is_err());
+    }
+
+    #[test]
+    fn test_parse_error_invalid_catch_all() {
+        assert!(RoutePattern::parse("/user/:..rest:").is_err());
+    }
+
+    #[test]
+    fn test_parse_error_invalid_param_name() {
+        assert!(RoutePattern::parse("/user/:123").is_err());
+    }
+
+    #[test]
+    fn test_parse_error_invalid_param_name_2() {
+        assert!(RoutePattern::parse("/user/:123/post/:456").is_err());
+    }
+
+    #[test]
+    fn test_parse_error_catch_must_be_last() {
+        assert!(RoutePattern::parse("/user/:..rest/post/:id").is_err());
+    }
+
+    #[test]
+    fn test_parse_error_trailing_slash() {
+        assert!(RoutePattern::parse("/user/").is_err());
+    }
+
+    #[test]
+    fn test_parse_error_empty_route() {
+        assert!(RoutePattern::parse("").is_err());
+    }
+
+    #[test]
+    fn test_parse_error_empty_param() {
+        assert!(RoutePattern::parse("/user/:").is_err());
+    }
+
+    #[test]
+    fn test_parse_error_empty_catch_all() {
+        assert!(RoutePattern::parse("/user/:..").is_err());
+    }
+
+    #[test]
+    fn test_parse_error_duplicate_param_name() {
+        assert!(RoutePattern::parse("/user/:id/:id").is_err());
     }
 }

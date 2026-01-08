@@ -33,16 +33,14 @@ fn UserProfile(id: String) -> Element {
     rsx! { div { "User: {id}" } }
 }
 
-// 🚧 Planned: Aliases
-#[route("/post/:slug")]
-#[alias("/article/:slug")]
-#[alias("/blog/:slug")]
+// ✅ Implemented: Redirects
+#[route("/post/:slug", redirect = ["/article/:slug", "/blog/:slug"])]
 #[component]
 fn Post(slug: String) -> Element {
     let ctx = use_route_context();
     
     // Redirect aliases to canonical URL
-    if ctx.is_alias {
+    if ctx.is_redirect() {
         let nav = use_navigation();
         use_effect(move || {
             nav.replace_url(&format!("/post/{}", slug));
@@ -84,8 +82,8 @@ mod admin {
 * [x] Primary route via `#[route("/path")]`
 * [x] Route parameters (`:param`) automatically parsed and passed as component props
 * [x] Component props must match route parameters (compile-time checked)
-* [ ] Multiple aliases via `#[alias("/path")]`
-* [ ] Access route metadata via `use_route_context()`
+* [x] Multiple redirects via `#[route("/path", redirect = ["/alias1", "/alias2"])]`
+* [x] Access route metadata via `use_route_context()`
 * [ ] Grouped routes via `#[route_group("/prefix")]` on modules
 
 ### Router Setup
@@ -157,7 +155,7 @@ fn UserPost(id: String, post_id: u32) -> Element {
     rsx! { 
         div { 
             "User {id}, Post {post_id}"
-            // 🚧 Planned: Access params from context too
+            // ✅ Implemented: Access params from context too
             p { "ID from context: {ctx.params.get(\"id\").unwrap()}" }
         }
     }
@@ -175,7 +173,7 @@ LinkTo::<UserPost> { id: "alice", post_id: 42, "View Post" }
 * [x] Automatically parsed from URL to component props
 * [x] Type conversion (String, u32, i32, etc.)
 * [x] Parse failures result in 404 or fallback route
-* [ ] Access raw params via `use_route_context().params`
+* [x] Access raw params via `use_route_context().params`
 
 ### Route Context
 
@@ -183,7 +181,7 @@ LinkTo::<UserPost> { id: "alice", post_id: 42, "View Post" }
 #[route("/dashboard")]
 #[component]
 fn Dashboard() -> Element {
-    // 🚧 Planned: Access metadata like ctx.url, ctx.pattern, etc.
+    // ✅ Implemented: Access metadata like ctx.url, ctx.pattern, etc.
     let ctx = use_route_context();
     
     // Log analytics
@@ -202,82 +200,95 @@ fn Dashboard() -> Element {
 ```
 
 **RouteContext Fields:**
-* [ ] `url: String` - The actual URL path (e.g., "/article/hello-world")
-* [ ] `pattern: &'static str` - The pattern that matched (e.g., "/article/:slug")
-* [ ] `is_alias: bool` - Whether matched via an alias
-* [ ] `component_name: &'static str` - Name of the matched component
-* [ ] `params: HashMap<String, String>` - Extracted route parameters
+* [x] `url: String` - The actual URL path (e.g., "/article/hello-world")
+* [x] `pattern: &'static str` - The pattern that matched (e.g., "/article/:slug")
+* [x] `is_redirect: bool` - Whether matched via a redirect
+* [x] `component_name: &'static str` - Name of the matched component
+* [x] `params: HashMap<String, String>` - Extracted route parameters
 
 **Use Cases:**
 - Canonical URL redirects
 - Analytics and logging
 - Breadcrumb generation
-- Conditional rendering based on route type
+- Conditional rendering based on a route type
+
+### Catch-All Routes
+
+```rust
+// ✅ Implemented: Props-based catch-all routes
+// Receive as String (raw path "a/b/c")
+#[route("/files/:..path")]
+#[component]
+fn FileViewer(path: String) -> Element {
+  rsx! { "Viewing file at: {path}" }
+}
+
+// Receive as Vec<String> (segments ["a", "b", "c"])
+#[route("/folders/:..segments")]
+#[component]
+fn FolderViewer(segments: Vec<String>) -> Element {
+  rsx! { "Depth: {segments.len()}" }
+}
+```
+
+**Capabilities:**
+* [x] Catch-all routes (`/:..name`)
+* [x] Type conversion (String, Vec\<T>, etc.)
+* [x] Parse failures result in 404 or fallback route
 
 ### Query Parameters
 
 ```rust
-// 🚧 Planned: Props-based query parameters
-#[route("/search?:q&page:page")]
+// ✅ Implemented: Props-based query parameters
+#[route("/search?q&page")]
 #[component]
 fn Search(q: String, page: Option<u32>) -> Element {
     rsx! {
         div {
             "Search: {q}"
-            "Page: {page}"
+            if let Some(page) = page {
+                br { }
+                "Page: {page}"
+            }
         }
     }
 }
 // URL: /search?q=rust&page=2 → q="rust", page=Some(2)
+// URL: /search?q=rust → q="rust", page=None
 ```
 
 **Capabilities:**
-* [ ] Query parameters are parsed from the URL
-* [ ] Type conversion (String, u32, i32, etc.)
-* [ ] Parse failures result in 404 or fallback route
+* [x] Query parameters are parsed from the URL
+* [x] Type conversion (String, u32, i32, etc.)
+* [x] Parse failures result in 404 or fallback route
 
 ### Fallback Routes (404 Handling)
 
 ```rust
-// 🚧 Planned: Fallback routes
-#[fallback]
-#[component]
-fn NotFound() -> Element {
-    let ctx = use_route_context();
-    let nav = use_navigation();
-    
-    // Log 404s
-    use_effect(move || {
-        log_404(&ctx.url);
-    });
-    
-    rsx! { 
-        div { class: "not-found",
-            h1 { "404 - Page Not Found" }
-            p { "The page '{ctx.url}' does not exist" }
-            
-            // Smart suggestions based on URL
-            if ctx.url.starts_with("/user/") {
-                p { "Looking for a user profile?" }
-                LinkTo::<UserList> { "Browse Users" }
-            }
-            
-            button {
-                onclick: move |_| nav.go_back(),
-                "Go Back"
-            }
-            LinkTo::<Home> { "Go Home" }
-        }
+// 1. Default Fallback
+// Renders the built-in "404 - Not Found" page
+Outlet {}
+
+// 2. Custom Fallback (Inline)
+// Renders your custom content when no route matches
+Outlet {
+    div {
+        h1 { "Oops! Page not found" }
+        p { "We couldn't find the page you were looking for." }
+        Link { to: "/", "Go Home" }
     }
+}
+
+// 3. Custom Fallback (Component)
+Outlet {
+    NotFoundPage {}
 }
 ```
 
 **Capabilities:**
-* [ ] `#[fallback]` marks a component as the 404 handler
-* [ ] Only one fallback allowed per application (compile-time enforced)
-* [ ] Has lowest matching priority
-* [ ] Access attempted URL via `use_route_context()`
-* [ ] Cannot be combined with `#[route]` or `#[alias]`
+* [x] Per-Outlet fallback content (different 404s for different parts of the app).
+* [x] Renders automatically on route mismatch or parameter parsing error.
+* [x] Defaults to a built-in debug-friendly 404 page if no content is provided.
 
 ### Compile-Time Validation
 
@@ -291,23 +302,6 @@ fn NotFound() -> Element {
 #[route("/double//slash")]     // ❌ Error: No double slashes         | ✅ Implemented
 #[route("/user/:")]            // ❌ Error: Empty parameter name      | ✅ Implemented
 #[route("/user/:id/:id")]      // ❌ Error: Duplicate parameter ':id' | ✅ Implemented
-```
-
-#### Fallback Validation
-```rust
-#[fallback]
-fn NotFound() -> Element { ... }
-
-#[fallback]                    // ❌ Error: Fallback already defined by `NotFound`
-fn Error404() -> Element { ... }
-
-#[fallback]
-#[route("/404")]               // ❌ Error: Fallback cannot have explicit route path
-fn NotFound() -> Element { ... }
-
-#[fallback]
-#[alias("/404")]               // ❌ Error: Fallback cannot have aliases
-fn NotFound() -> Element { ... }
 ```
 
 #### Type Safety

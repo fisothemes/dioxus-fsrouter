@@ -13,12 +13,12 @@ pub use validate::{
     are_patterns_ambiguous, validate_route_registry, validate_routes, validate_routes_or_panic,
 };
 
-use crate::errors::ParseResult;
+use crate::errors::ParseError;
 
 pub type StaticRouteRenderFn = fn() -> Element;
-pub type DynamicRouteRenderFn = fn(HashMap<String, String>) -> ParseResult<Element>;
+pub type DynamicRouteRenderFn = fn(HashMap<String, String>) -> Result<Element, ParseError>;
 
-/// Function pointer types for rendering routes
+/// Render function for a route
 #[derive(Debug, Clone, Copy, Hash)]
 pub enum RenderFn {
     /// Static route with no parameters
@@ -37,26 +37,30 @@ pub struct RouteInfo<'a> {
     /// Primary route path
     path: &'a str,
     /// Parsed pattern for matching (lazy-initialised)
-    pattern: &'a OnceLock<RoutePattern>,
+    pattern: &'a OnceLock<Result<RoutePattern, ParseError>>,
     /// Component name
     component_name: &'a str,
     /// Render function
     render_fn: RenderFn,
+    /// Canonical path (if any)
+    canonical_path: Option<&'a str>,
 }
 
 impl<'a> RouteInfo<'a> {
     /// Create new route info
     pub const fn new(
         path: &'a str,
-        pattern: &'a OnceLock<RoutePattern>,
+        pattern: &'a OnceLock<Result<RoutePattern, ParseError>>,
         component_name: &'a str,
         render_fn: RenderFn,
+        canonical_path: Option<&'a str>,
     ) -> Self {
         Self {
             path,
             pattern,
             component_name,
             render_fn,
+            canonical_path,
         }
     }
 
@@ -66,8 +70,10 @@ impl<'a> RouteInfo<'a> {
     }
 
     /// Get the parsed pattern (lazy initialisation)
-    pub fn pattern(&self) -> &RoutePattern {
-        self.pattern.get_or_init(|| RoutePattern::parse(self.path))
+    pub fn pattern(&self) -> Result<&RoutePattern, &ParseError> {
+        self.pattern
+            .get_or_init(|| RoutePattern::parse(self.path))
+            .as_ref()
     }
 
     /// Get the component name
@@ -76,17 +82,29 @@ impl<'a> RouteInfo<'a> {
     }
 
     /// Get the priority for route matching
+    ///
+    /// If the pattern cannot be parsed, returns -1 as a fallback priority.
     pub fn priority(&self) -> RoutePriority {
-        self.pattern().priority()
+        self.pattern().map(|p| p.priority()).unwrap_or(-1)
+    }
+
+    /// Checks if the current route is a redirect
+    pub fn is_redirect(&self) -> bool {
+        self.canonical_path.is_some()
+    }
+
+    /// Gets the canonical path for this route, if any.
+    pub fn canonical_path(&self) -> Option<&str> {
+        self.canonical_path
     }
 
     /// Check if this route matches the given URL
     pub fn matches(&self, url: &str) -> Option<HashMap<String, String>> {
-        self.pattern().matches(url)
+        self.pattern().ok()?.matches(url)
     }
 
     /// Renders the component associated with this route
-    pub fn render(&self, params: Option<HashMap<String, String>>) -> ParseResult<Element> {
+    pub fn render(&self, params: Option<HashMap<String, String>>) -> Result<Element, ParseError> {
         match (&self.render_fn, params) {
             (RenderFn::Static(f), _) => Ok(f()),
             (RenderFn::WithParams(f), Some(p)) => f(p),
@@ -107,6 +125,14 @@ impl<'a> RouteInfo<'a> {
         }
     }
 }
+
+impl<'a> PartialEq for RouteInfo<'a> {
+    fn eq(&self, other: &Self) -> bool {
+        self.path == other.path
+    }
+}
+
+impl<'a> Eq for RouteInfo<'a> {}
 
 /// Get all registered routes (sorted by priority)
 ///
@@ -145,4 +171,76 @@ pub fn find_route(path: &str) -> Option<(&'static RouteInfo<'static>, HashMap<St
     }
 
     None
+}
+
+/// Trait for types that can be parsed from a catch-all route segment (e.g. "/:..rest")
+pub trait TryFromRouteSegments: Sized {
+    fn try_from_route_segments(segments: &str) -> Result<Self, ParseError>;
+}
+
+impl TryFromRouteSegments for String {
+    fn try_from_route_segments(segments: &str) -> Result<Self, ParseError> {
+        Ok(segments.to_string())
+    }
+}
+
+impl TryFromRouteSegments for () {
+    fn try_from_route_segments(_segments: &str) -> Result<Self, ParseError> {
+        Ok(())
+    }
+}
+
+trait Numeric {}
+
+crate::apply_marker_trait!(
+    Numeric, u8, u16, u32, u64, u128, usize, i8, i16, i32, i64, i128, isize, f32, f64
+);
+
+impl<T: Numeric + std::str::FromStr> TryFromRouteSegments for T {
+    fn try_from_route_segments(segments: &str) -> Result<Self, ParseError> {
+        segments.parse().map_err(|_| ParseError::InvalidType {
+            param: "<catch-all>".to_string(),
+            expected_type: std::any::type_name::<T>().to_string(),
+            value: segments.to_string(),
+            route: "<catch-all>".to_string(),
+        })
+    }
+}
+
+impl<T: TryFromRouteSegments> TryFromRouteSegments for Option<T> {
+    fn try_from_route_segments(segments: &str) -> Result<Self, ParseError> {
+        match T::try_from_route_segments(segments) {
+            Ok(value) => Ok(Some(value)),
+            Err(_) => Ok(None),
+        }
+    }
+}
+
+impl<T: TryFromRouteSegments> TryFromRouteSegments for Result<T, ParseError> {
+    fn try_from_route_segments(segments: &str) -> Result<Self, ParseError> {
+        match T::try_from_route_segments(segments) {
+            Ok(value) => Ok(Ok(value)),
+            Err(error) => Ok(Err(error)),
+        }
+    }
+}
+
+impl<T: std::str::FromStr> TryFromRouteSegments for Vec<T> {
+    fn try_from_route_segments(segments: &str) -> Result<Self, ParseError> {
+        if segments.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        segments
+            .split('/')
+            .map(|s| {
+                s.parse::<T>().map_err(|_| ParseError::InvalidType {
+                    param: "<catch-all>".to_string(),
+                    expected_type: std::any::type_name::<Vec<T>>().to_string(),
+                    value: s.to_string(),
+                    route: "<catch-all>".to_string(),
+                })
+            })
+            .collect()
+    }
 }

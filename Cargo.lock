@@ -372,6 +372,7 @@ version = "0.1.0"
 dependencies = [
  "dioxus",
  "dioxus-fsrouter-macro",
+ "indexmap",
  "inventory",
  "thiserror 2.0.17",
  "urlencoding",
@@ -383,6 +384,7 @@ dependencies = [
 name = "dioxus-fsrouter-macro"
 version = "0.1.0"
 dependencies = [
+ "indexmap",
  "proc-macro2",
  "quote",
  "syn",

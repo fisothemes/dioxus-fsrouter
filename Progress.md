@@ -667,7 +667,7 @@ panic!("Route '{}' requires params but none provided. This is a router bug.");
 
 1. Pattern caching - Use `OnceCell` for lazy initialisation
 2. Priority sorting - Sort once per navigation (cheap)
-3. Parameter parsing - Only parse matched route
+3. Parameter parsing - Only parse the matched route
 4. Zero overhead - Enum dispatch is optimised away
 
 ---
@@ -697,7 +697,183 @@ Total: ~2 weeks for complete Phase 2 implementation
 
 ## Goal
 
-Complete the URL matching logic and secure the basic components.
+Complete the URL matching logic by adding support complex patterns (Catch-alls, Query Params) and ensure the router is secure via default (Link validation) and robust (Custom Fallbacks).
+
+- `Link` component should strictly enforce internal paths to prevent open redirects.
+- `Outlet` supports per-instance 404 fallbacks via props.
+- Support for `/:..segments` and `?:query` syntax.
+- Support for `#[alias]` to reduce duplication.
+
+---
+
+### 3.1 Link Security
+
+Mitigate the **Open Redirect** vulnerability by validating link targets.
+
+Checklist:
+* [x] Update `Link` props to block external links.
+* [x] Path must start with `/`.
+  * [x] Path must NOT start with `//`.
+* [x] Update `Link` render logic:
+  * [x] If path is valid: Render standard `<a>` with click handler.
+  * [x] If path is external/invalid: Render "dead" anchor (no `href`) to prevent navigation.
+
+---
+
+### 3.2 Fallback
+
+Allow developers to customise the "Not Found" UI per-outlet.
+
+Checklist:
+* [x] Update `Outlet` to accept `children: Element`.
+* [x] Update `Outlet` render logic:
+  * [x] If `find_route` returns `None` → Render children (if present) or default `NotFound`.
+  * [x] If parameter parsing fails (Result::Err) → Render children (if present) or default `NotFound`.
+* [x] Implement default `NotFound` component for when no children are provided.
+
+```rust
+// Usage
+
+// 1. Default Fallback (Built-in 404 page)
+Outlet {}
+
+// 2. Custom Fallback (Rendered if no route matches)
+Outlet {
+    div { "Oops! Page not found." }
+}
+```
+
+---
+
+### 3.3 Catch-All
+
+Support "rest of path" matching.
+
+**Syntax:** `#[route("/files/:..path")]`
+
+Checklist:
+* [x] **Runtime (`pattern.rs`):**
+  * [x] Add `Segment::CatchAll(String)`.
+  * [x] Update `calculate_priority`: Catch-all gets **100 points** (Lowest priority).
+  * [x] **Fix:** Root route (`/`) explicitly assigned **10,000 points** to prevent shadowing by catch-alls.
+  * [x] Update `matches()`: Consume all remaining URL segments into a slash-joined string.
+* [x] **Type System (`route/mod.rs`):**
+  * [x] Add `TryFromRouteSegments` trait to handle parsing `String`, `Vec<String>`, etc.
+* [x] **Macro (`lib.rs`):**
+  * [x] Parse `:..name` syntax (enforced as the last segment).
+  * [x] Track specific catch-all parameter name to apply correct parsing logic.
+  * [x] Generate code calling `TryFromRouteSegments` for the catch-all argument.
+
+```rust
+// Usage
+#[route("/files/:..path")]
+fn FileViewer(path: Vec<String>) -> Element { ... }
+```
+
+---
+
+### 3.4 Query Parameters
+
+Support for type-safe query parameters in routes.
+
+**Syntax:** `#[route("/search?q&page")]` becomes `/search?q=hello&page=2`.
+
+Checklist:
+* [x] **Runtime (`pattern.rs`):**
+  * [x] Update `matches()` to extract and parse the query string from the URL.
+  * [x] Ensure path parameters take precedence over query parameters.
+  * [x] Fix `get_current_path` to include the query string (search) from the browser.
+* [x] **Macro (`lib.rs`):**
+  * [x] Split route string at `?` to separate a path pattern from query spec.
+  * [x] Allow and normalize query syntax (e.g., `?q`, `?:q`, `?q&page`).
+  * [x] **Type Safety:**
+    * [x] Detect `Option<T>` arguments to handle optional query parameters.
+    * [x] Generate code to parse required parameters (return 404 if missing).
+    * [x] Generate code to parse optional parameters (return `None` if missing).
+
+```rust
+// Usage
+#[route("/search?q&page")]
+fn Search(q: String, page: Option<u32>) -> Element { ... }
+```
+
+---
+
+### 3.5 Redirection
+
+Allow multiple paths to map to a single component.
+
+**Syntax:** `#[route("/user/:id", redirect = ["/u/:id"])]`
+
+Checklist:
+* [x] **Macro (`lib.rs`):**
+  * [x] Parse `redirect = [...]` arguments within the `#[route]` attribute.
+  * [x] Validate consistency: Redirect parameters must match the main route's parameters exactly.
+  * [x] Generate multiple `inventory::submit!` entries:
+    * One for the main route (`canonical_path: None`).
+    * One for each redirect (`canonical_path: Some(main_route)`).
+* [x] **Runtime (`route/mod.rs`):**
+  * [x] Update `RouteInfo` to store `canonical_path`.
+  * [x] Add `is_redirect()` helper method.
+
+```rust
+#[route("/home", redirect = ["/", "/start"])]
+fn Home() -> Element { ... }
+```
+
+---
+
+### 3.6 Route Context
+
+Expose metadata about the currently matched route to the component tree.
+
+Checklists:
+* [x] **Context Struct (`router/context.rs`):**
+  * [x] Define `RouteContext` with fields: `url`, `pattern`, `is_redirect`, `component_name`, and `params`.
+* [x] **Provider (`router/components.rs`):**
+  * [x] Update `Outlet` to provide `RouteContext` when a match is found.
+* [x] **Hook:**
+  * [x] Export `use_route_context()` hook for easy consumption in components.
+
+```rust
+#[route("/dashboard")]
+fn Dashboard() -> Element {
+    let ctx = use_route_context();
+    
+    rsx! {
+        p { "Current URL: {ctx.url}" }
+        if ctx.is_redirect {
+            p { "You were redirected from an alias!" }
+        }
+    }
+}
+```
+
+---
+
+### 3.7 Testing
+
+Ensure safety and correctness across phase 3 features.
+
+Checklists:
+* [x] Add catch-all unit tests.
+* [x] Add query parameter unit tests.
+* [x] Add integration tests for redirection.
+* [x] Add integration tests for route context.
+
+---
+
+### 3.8 Example
+
+Incorporate all features into a simple example app.
+
+Checklists:
+* [x] Update the `Home` component to mention phase 3 features on `basic/main.rs`.
+* [x] Add home page redirection route `/home`.
+* [x] Add custom `NotFound` component for the example app on `basic/main.rs`.
+* [x] Add search box (`SearchBox`) to nav-bar.
+  * [x] Queries on search box are passed to the `Search` component to demostrate query parameters.
+  * [x] On the search page, display links to the documentation page (`Docs` component) to demostrate catch-all route parameters.
 
 ---
 
@@ -706,6 +882,16 @@ Complete the URL matching logic and secure the basic components.
 ## Goal
 
 A clean way to structure routes for large applications.
+
+### 4.1 Module-Level Macro
+
+---
+
+### 4.2 Example
+
+---
+
+### 4.3 Testing
 
 ---
 
@@ -716,6 +902,20 @@ A clean way to structure routes for large applications.
 Introduce `LinkTo` component to safely navigate between routes.
 
 ---
+
+### 5.1 Routable Trait?
+
+---
+
+### 5.2 LinkTo Component
+
+---
+
+### 5.3 Example
+
+---
+
+### 5.4 Testing
 
 # Phase 6: Nested Layouts 
 
